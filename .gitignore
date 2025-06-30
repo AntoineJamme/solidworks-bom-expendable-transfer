@@ -1,0 +1,35 @@
+# SolidWorks BOM Transfer - Git Ignore File
+
+# Temporary and generated files
+Exports/*.csv
+Processed/*.csv
+Processed/*.txt
+*.log
+*.tmp
+
+# Windows system files
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Temporary office files
+~$*.doc*
+~$*.xls*
+~$*.ppt*
+
+# SolidWorks temporary files
+~$*.sld*
+*.sldprt.bak
+*.sldasmlog
+
+# PowerShell execution logs
+debug.log
+transcript.log
+
+# Keep directories but ignore their contents (except for examples)
+Exports/.gitkeep
+Processed/.gitkeep
+
+# User-specific configuration (uncomment if you want to exclude)
+# config.json 

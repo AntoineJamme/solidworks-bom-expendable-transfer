@@ -1,0 +1,169 @@
+' SolidWorks BOM Export Macro for Expendable ERP
+' Place this file in your SolidWorks macro folder
+' File: SolidWorks_BOM_Export.swp
+
+Option Explicit
+
+' Configuration Constants
+Const EXPORT_PATH As String = "C:\Users\Antoi\SolidWorks_BOM_Transfer\Exports\"
+Const INCLUDE_HEADER As Boolean = True
+Const INCLUDE_QTY As Boolean = True
+Const INCLUDE_DESCRIPTION As Boolean = True
+
+Dim swApp As SldWorks.SldWorks
+Dim swModel As SldWorks.ModelDoc2
+Dim swAssy As SldWorks.AssemblyDoc
+
+Sub main()
+    
+    Set swApp = Application.SldWorks
+    Set swModel = swApp.ActiveDoc
+    
+    If swModel Is Nothing Then
+        MsgBox "Please open a SolidWorks assembly document"
+        Exit Sub
+    End If
+    
+    If swModel.GetType() <> swDocumentTypes_e.swDocASSEMBLY Then
+        MsgBox "Please open an assembly document"
+        Exit Sub
+    End If
+    
+    Set swAssy = swModel
+    
+    ' Export BOM data
+    ExportBOMToCSV
+    
+    MsgBox "BOM exported successfully to: " & EXPORT_PATH
+    
+End Sub
+
+Sub ExportBOMToCSV()
+    
+    Dim vComps As Variant
+    Dim swComp As SldWorks.Component2
+    Dim swCompModel As SldWorks.ModelDoc2
+    Dim swCustPropMgr As SldWorks.CustomPropertyManager
+    
+    Dim fileName As String
+    Dim filePath As String
+    Dim fileNum As Integer
+    
+    ' Generate filename with timestamp
+    fileName = GetFileNameWithoutExtension(swModel.GetPathName()) & "_BOM_" & Format(Now, "yyyymmdd_hhnnss") & ".csv"
+    filePath = EXPORT_PATH & fileName
+    
+    ' Create directory if it doesn't exist
+    If Dir(EXPORT_PATH, vbDirectory) = "" Then
+        MkDir EXPORT_PATH
+    End If
+    
+    fileNum = FreeFile
+    Open filePath For Output As #fileNum
+    
+    ' Write header
+    If INCLUDE_HEADER Then
+        Print #fileNum, "Item,Part Number,Description,Quantity,Material,Weight,Cost,Supplier"
+    End If
+    
+    ' Get all components
+    vComps = swAssy.GetComponents(True)
+    
+    Dim itemCount As Integer
+    itemCount = 1
+    
+    Dim partDict As New Collection
+    Dim partNumber As String
+    Dim description As String
+    Dim quantity As Integer
+    Dim material As String
+    Dim weight As String
+    Dim cost As String
+    Dim supplier As String
+    
+    If Not IsEmpty(vComps) Then
+        Dim i As Integer
+        For i = 0 To UBound(vComps)
+            Set swComp = vComps(i)
+            
+            If Not swComp.IsSuppressed And swComp.IsRoot = False Then
+                Set swCompModel = swComp.GetModelDoc2()
+                
+                If Not swCompModel Is Nothing Then
+                    partNumber = GetCustomProperty(swCompModel, "PartNo")
+                    If partNumber = "" Then partNumber = GetFileNameWithoutExtension(swCompModel.GetPathName())
+                    
+                    ' Check if part already exists in our collection
+                    On Error Resume Next
+                    quantity = partDict(partNumber)
+                    If Err.Number <> 0 Then
+                        ' Part not found, add it
+                        quantity = 1
+                        partDict.Add quantity, partNumber
+                        
+                        ' Get part properties
+                        description = GetCustomProperty(swCompModel, "Description")
+                        material = GetCustomProperty(swCompModel, "Material")
+                        weight = GetCustomProperty(swCompModel, "Weight")
+                        cost = GetCustomProperty(swCompModel, "Cost")
+                        supplier = GetCustomProperty(swCompModel, "Supplier")
+                        
+                        ' Write to CSV
+                        Print #fileNum, EscapeCSV(CStr(itemCount)) & "," & _
+                                      EscapeCSV(partNumber) & "," & _
+                                      EscapeCSV(description) & "," & _
+                                      EscapeCSV(CStr(quantity)) & "," & _
+                                      EscapeCSV(material) & "," & _
+                                      EscapeCSV(weight) & "," & _
+                                      EscapeCSV(cost) & "," & _
+                                      EscapeCSV(supplier)
+                        
+                        itemCount = itemCount + 1
+                    Else
+                        ' Part found, increment quantity
+                        partDict.Remove partNumber
+                        quantity = quantity + 1
+                        partDict.Add quantity, partNumber
+                    End If
+                    On Error GoTo 0
+                End If
+            End If
+        Next i
+    End If
+    
+    Close #fileNum
+    
+End Sub
+
+Function GetCustomProperty(model As SldWorks.ModelDoc2, propName As String) As String
+    
+    Dim swCustPropMgr As SldWorks.CustomPropertyManager
+    Dim propValue As String
+    Dim resolvedValue As String
+    
+    Set swCustPropMgr = model.Extension.CustomPropertyManager("")
+    swCustPropMgr.Get3 propName, False, propValue, resolvedValue
+    
+    GetCustomProperty = resolvedValue
+    
+End Function
+
+Function GetFileNameWithoutExtension(fullPath As String) As String
+    
+    Dim fileName As String
+    fileName = Right(fullPath, Len(fullPath) - InStrRev(fullPath, "\"))
+    GetFileNameWithoutExtension = Left(fileName, InStrRev(fileName, ".") - 1)
+    
+End Function
+
+Function EscapeCSV(text As String) As String
+    
+    ' Escape commas and quotes for CSV format
+    If InStr(text, ",") > 0 Or InStr(text, """") > 0 Or InStr(text, vbCrLf) > 0 Then
+        text = Replace(text, """", """""")
+        text = """" & text & """"
+    End If
+    
+    EscapeCSV = text
+    
+End Function 

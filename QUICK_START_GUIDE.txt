@@ -1,0 +1,102 @@
+🚀 QUICK START GUIDE - SolidWorks to Expendable ERP
+=====================================================
+
+IMMEDIATE SETUP (5 minutes):
+============================
+
+1. INSTALL SOLIDWORKS MACRO:
+   ✓ Copy "Scripts\SolidWorks_BOM_Export.swp" to your SolidWorks macros folder
+   ✓ Default location: C:\Users\[YourName]\AppData\Roaming\SolidWorks\Macros\
+
+2. CONFIGURE EXPENDABLE SETTINGS:
+   ✓ Edit "config.json" - change these lines:
+   
+   "default_category": "Parts",         ← Change to your category
+   "default_location": "Main Warehouse" ← Change to your warehouse
+
+3. TEST THE SETUP:
+   ✓ Open any assembly in SolidWorks
+   ✓ Run the macro: Tools > Macro > Run > SolidWorks_BOM_Export.swp
+   ✓ Double-click "Run_BOM_Transfer.bat"
+   ✓ Check the "Processed" folder for output files
+
+DAILY WORKFLOW:
+==============
+
+Step 1: Open assembly in SolidWorks
+Step 2: Run BOM Export macro  
+Step 3: Run "Run_BOM_Transfer.bat"
+Step 4: Import "*_Expendable_Ready.csv" into Expendable ERP
+
+TROUBLESHOOTING:
+===============
+
+❌ PROBLEM: "No CSV files found"
+✅ SOLUTION: Run the SolidWorks macro first
+
+❌ PROBLEM: PowerShell execution error  
+✅ SOLUTION: Right-click PowerShell > Run as Administrator
+           Type: Set-ExecutionPolicy RemoteSigned
+
+❌ PROBLEM: Missing part data
+✅ SOLUTION: Add custom properties to SolidWorks parts
+           See: Templates\SolidWorks_Custom_Properties_Template.txt
+
+❌ PROBLEM: Import errors in Expendable ERP
+✅ SOLUTION: Check field mapping in config.json
+           Follow Import_Instructions.txt
+
+FIRST TIME SETUP CHECKLIST:
+===========================
+
+□ Copied macro to SolidWorks macros folder
+□ Updated config.json with your settings  
+□ Added custom properties to at least one SolidWorks part
+□ Tested with a simple assembly
+□ Successfully imported test data into Expendable ERP
+□ Created desktop shortcut to Run_BOM_Transfer.bat
+
+CUSTOMIZATION QUICK REFERENCE:
+==============================
+
+• Field Names: Edit config.json > "field_mapping"
+• Default Values: Edit config.json > "expendable_settings"  
+• Custom Properties: Edit config.json > "solidworks_custom_properties"
+• Output Format: Modify Scripts\Process_BOM_for_Expendable.ps1
+
+SUPPORT FILES:
+=============
+
+📄 README.md - Complete documentation
+📄 config.json - All settings and customization
+📁 Templates\ - Examples and templates
+📁 Processed\ - Check here for import instructions
+
+SUCCESS INDICATORS:
+==================
+
+✅ SolidWorks macro runs without errors
+✅ CSV file appears in Exports folder
+✅ Batch file processes without errors  
+✅ Expendable_Ready.csv file created
+✅ Import_Instructions.txt generated
+✅ Data imports successfully into Expendable ERP
+
+NEXT STEPS:
+===========
+
+1. Add custom properties to all your SolidWorks parts
+2. Customize config.json for your specific needs
+3. Create desktop shortcuts for quick access
+4. Train your team on the workflow
+5. Set up batch processing for multiple assemblies
+
+CONTACT FOR HELP:
+================
+
+• Check README.md for detailed documentation
+• Review config.json for customization options
+• Check debug logs in Processed folder
+• Verify SolidWorks custom properties are set
+
+Happy automating! 🎉 

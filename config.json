@@ -1,0 +1,52 @@
+{
+  "expendable_settings": {
+    "date_format": "MM/dd/yyyy",
+    "currency_symbol": "$",
+    "default_category": "Parts",
+    "default_location": "Main Warehouse",
+    "default_unit_of_measure": "EA"
+  },
+  "field_mapping": {
+    "item_number": "Item",
+    "part_number": "Part Number",
+    "description": "Description",
+    "quantity": "Quantity",
+    "material": "Material",
+    "weight": "Weight",
+    "cost": "Cost",
+    "supplier": "Supplier",
+    "category": "Category",
+    "location": "Location",
+    "unit_of_measure": "UOM"
+  },
+  "import_template": {
+    "required_fields": [
+      "part_number",
+      "description",
+      "quantity"
+    ],
+    "optional_fields": [
+      "material",
+      "weight",
+      "cost",
+      "supplier",
+      "category",
+      "location",
+      "unit_of_measure"
+    ]
+  },
+  "solidworks_custom_properties": {
+    "part_number_property": "PartNo",
+    "description_property": "Description",
+    "material_property": "Material",
+    "weight_property": "Weight",
+    "cost_property": "Cost",
+    "supplier_property": "Supplier"
+  },
+  "processing_options": {
+    "remove_duplicates": true,
+    "skip_suppressed_components": true,
+    "include_subassemblies": true,
+    "auto_open_output_folder": true
+  }
+} 
