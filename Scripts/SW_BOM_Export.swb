@@ -1,0 +1,206 @@
+' SolidWorks Indented (Hierarchical) BOM Export Macro for Expendable ERP
+' File: SolidWorks_BOM_Indented_Export.swb
+' Author: Auto-generated
+' -------------------------------------------------------------
+' This macro exports an indented (hierarchical) Bill of Materials
+' from the active SolidWorks assembly to a CSV file that matches
+' the format required by Expendable ERP. Rows whose Part Number
+' contains any letters (A–Z) are excluded.
+
+Option Explicit
+
+' ====== Configuration ======
+Const EXPORT_PATH As String = "C:\Users\ajamme\solidworks-bom-expendable-transfer\Exports\"
+Const CSV_HEADER As String = "ITEM NO.,PART NUMBER,DESCRIPTION,QTY."
+
+' ====== SolidWorks globals ======
+Dim swApp As SldWorks.SldWorks
+Dim swModel As SldWorks.ModelDoc2
+Dim swAssy As SldWorks.AssemblyDoc
+
+' Current output file handle
+Dim fileNum As Integer
+
+' =============================================================
+Sub main()
+    Set swApp = Application.SldWorks
+    Set swModel = swApp.ActiveDoc
+    
+    If swModel Is Nothing Then
+        MsgBox "Please open a SolidWorks assembly document."
+        Exit Sub
+    End If
+    
+    If swModel.GetType() <> swDocumentTypes_e.swDocASSEMBLY Then
+        MsgBox "The active document must be an Assembly (SLDASM)."
+        Exit Sub
+    End If
+    
+    Set swAssy = swModel
+    
+    ExportIndentedBOM
+End Sub
+
+' =============================================================
+Sub ExportIndentedBOM()
+    Dim fileName As String
+    Dim filePath As String
+    
+    ' Ensure export directory exists
+    If Dir(EXPORT_PATH, vbDirectory) = "" Then MkDir EXPORT_PATH
+    
+    ' Build unique filename – <Assembly>_IndentedBOM_yyyyMMdd_HHmmss.csv
+    fileName = GetFileNameWithoutExt(swModel.GetPathName()) & "_IndentedBOM_" & _
+               Format(Now, "yyyymmdd_hhnnss") & ".csv"
+    filePath = EXPORT_PATH & fileName
+    
+    fileNum = FreeFile
+    Open filePath For Output As #fileNum
+        Print #fileNum, CSV_HEADER
+        
+        ' Start recursion with top-level (root) assembly children
+        ProcessAssemblyLevel swAssy, "", 1, 1
+    Close #fileNum
+    
+    MsgBox "Indented BOM exported to:" & vbCrLf & filePath, vbInformation
+End Sub
+
+' =============================================================
+' Recursively processes a SolidWorks assembly level and writes CSV rows.
+'   assy           – assembly whose immediate children we are processing
+'   parentItemNo   – hierarchical item number of the parent ("" for root)
+'   level          – integer depth (1=root children, 2=grand-children, …)
+'   parentQty      – quantity multiplier propagated from parent hierarchy
+Sub ProcessAssemblyLevel(assy As SldWorks.AssemblyDoc, _
+                         parentItemNo As String, _
+                         level As Integer, _
+                         parentQty As Integer)
+    Dim vComps As Variant
+    vComps = assy.GetComponents(False)   ' direct children only
+    If IsEmpty(vComps) Then Exit Sub
+    
+    ' Dictionary to avoid exporting duplicate part numbers at this level
+    Dim dict As Object
+    Set dict = CreateObject("Scripting.Dictionary")
+    
+    Dim childIdx As Integer: childIdx = 0
+    Dim i As Integer
+    For i = 0 To UBound(vComps)
+        Dim swComp As SldWorks.Component2
+        Set swComp = vComps(i)
+        
+        If swComp Is Nothing Then GoTo NextIteration
+        If swComp.IsSuppressed Then GoTo NextIteration
+        
+        Dim swChild As SldWorks.ModelDoc2
+        Set swChild = swComp.GetModelDoc2()
+        If swChild Is Nothing Then GoTo NextIteration
+        
+        Dim partNo As String
+        partNo = GetCustomProperty(swChild, "PartNo")
+        If partNo = "" Then partNo = GetFileNameWithoutExt(swChild.GetPathName())
+        
+        ' Skip if part number contains any letters (non-numeric/dash/dot)
+        If Not IsNumericOnly(partNo) Then GoTo NextIteration
+        
+        ' Ensure we only list each unique part number once per level
+        If dict.Exists(partNo) Then GoTo NextIteration
+        dict.Add partNo, True
+        
+        ' Increment local item counter and build hierarchical item number
+        childIdx = childIdx + 1
+        Dim thisItemNo As String
+        If parentItemNo = "" Then
+            thisItemNo = CStr(childIdx)    ' top level: 1,2,3 …
+        Else
+            thisItemNo = parentItemNo & "." & childIdx   ' e.g. 6.1, 6.2 …
+        End If
+        
+        ' Calculate quantity for this item (instances × parentQty)
+        Dim instQty As Integer
+        instQty = CountInstances(assy, swComp) * parentQty
+        
+        ' Obtain description (or blank string)
+        Dim descr As String
+        descr = GetCustomProperty(swChild, "Description")
+        If descr = "" Then descr = " "
+        
+        ' Build part-number field with indentation: two spaces per level beyond root
+        Dim indent As String
+        indent = Space(2 * (level - 1))
+        Dim indentedPartNo As String
+        indentedPartNo = indent & partNo
+        
+        ' Write CSV row
+        Print #fileNum, EscapeCSV(thisItemNo) & "," & _
+                        EscapeCSV(indentedPartNo) & "," & _
+                        EscapeCSV(descr) & "," & _
+                        instQty
+        
+        ' If child is an assembly, recurse into its children
+        If swChild.GetType() = swDocumentTypes_e.swDocASSEMBLY Then
+            Dim subAssy As SldWorks.AssemblyDoc
+            Set subAssy = swChild
+            ProcessAssemblyLevel subAssy, thisItemNo, level + 1, instQty
+        End If
+NextIteration:
+    Next i
+End Sub
+
+' =============================================================
+Function CountInstances(parentAssy As SldWorks.AssemblyDoc, targetComp As SldWorks.Component2) As Integer
+    Dim vComps As Variant
+    vComps = parentAssy.GetComponents(False)
+    If IsEmpty(vComps) Then CountInstances = 0: Exit Function
+    
+    Dim cnt As Integer: cnt = 0
+    Dim i As Integer
+    For i = 0 To UBound(vComps)
+        Dim c As SldWorks.Component2
+        Set c = vComps(i)
+        If Not c.IsSuppressed Then
+            If StrComp(c.GetPathName(), targetComp.GetPathName(), vbTextCompare) = 0 Then cnt = cnt + 1
+        End If
+    Next i
+    CountInstances = cnt
+End Function
+
+' =============================================================
+Function IsNumericOnly(txt As String) As Boolean
+    ' Returns True if txt contains only 0-9, dash (-) or dot (.) characters
+    Dim i As Integer
+    For i = 1 To Len(txt)
+        Dim ch As String
+        ch = Mid(txt, i, 1)
+        If Not (ch >= "0" And ch <= "9" Or ch = "-" Or ch = ".") Then
+            IsNumericOnly = False
+            Exit Function
+        End If
+    Next i
+    IsNumericOnly = True
+End Function
+
+' =============================================================
+Function GetCustomProperty(model As SldWorks.ModelDoc2, propName As String) As String
+    Dim mgr As SldWorks.CustomPropertyManager
+    Set mgr = model.Extension.CustomPropertyManager("")
+    Dim val As String, resVal As String
+    mgr.Get3 propName, False, val, resVal
+    GetCustomProperty = resVal
+End Function
+
+' =============================================================
+Function GetFileNameWithoutExt(fullPath As String) As String
+    Dim fName As String
+    fName = Right(fullPath, Len(fullPath) - InStrRev(fullPath, "\"))
+    GetFileNameWithoutExt = Left(fName, InStrRev(fName, ".") - 1)
+End Function
+
+' =============================================================
+Function EscapeCSV(text As String) As String
+    If InStr(text, ",") > 0 Or InStr(text, """" ) > 0 Or InStr(text, vbCrLf) > 0 Then
+        text = Replace(text, """", """""")
+        text = """" & text & """"
+    End If
+    EscapeCSV = text
+End Function 

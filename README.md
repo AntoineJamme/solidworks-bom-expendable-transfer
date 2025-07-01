@@ -1,250 +1,144 @@
 # SolidWorks BOM to Expendable ERP Transfer Tool
 
-This tool automates the transfer of Bill of Materials (BOM) data from SolidWorks 2022 assemblies to Expendable ERP systems.
+A streamlined tool for transferring Bill of Materials (BOM) data from SolidWorks assemblies to Expendable ERP systems via UI automation.
 
-## 📁 Folder Structure
+## ✅ **Current Status: WORKING**
 
-```
-C:\Users\Antoi\SolidWorks_BOM_Transfer\
-├── Scripts\
-│   ├── SolidWorks_BOM_Export.swp      # SolidWorks VBA macro
-│   └── Process_BOM_for_Expendable.ps1 # PowerShell processing script
-├── Exports\                           # Raw CSV exports from SolidWorks
-├── Processed\                         # Processed files ready for Expendable ERP
-├── Templates\                         # Templates and examples
-├── config.json                        # Configuration settings
-├── Run_BOM_Transfer.bat              # Main automation script
-└── README.md                         # This file
-```
+- ✅ **Expendable ERP Detected**: ESIMRP process with "Expandable" window title
+- ✅ **UI Automation Ready**: PowerShell scripts configured for automated data entry
+- ✅ **Streamlined Interface**: Single launcher with working options only
 
 ## 🚀 Quick Start
 
-### Step 1: Install the SolidWorks Macro
+### 1. Launch the Tool
+```bash
+# From Git Bash or WSL
+./run_windows_tools.sh
 
-1. Copy `Scripts\SolidWorks_BOM_Export.swp` to your SolidWorks macro folder:
-   - Usually located at: `C:\Users\[Username]\AppData\Roaming\SolidWorks\Macros\`
-   - Or your custom macro folder if configured
+# Or double-click on Windows
+bash run_windows_tools.sh
+```
 
-2. In SolidWorks, go to **Tools > Macro > Run** and select the macro file
+### 2. Available Options
+1. **Find Expendable ERP installation and processes** - Locate ERP system details
+2. **Test ERP detection for UI automation** - Verify Expendable ERP is running and detectable
+3. **Run BOM processing** - Execute the main BOM transfer workflow
+4. **Open project folder in Windows Explorer** - Quick access to project files
+5. **Exit** - Close the launcher
 
-3. Add the macro to your toolbar for quick access:
-   - **Tools > Customize > Commands**
-   - Drag "Macro" to your toolbar
-   - Browse to the macro file
+## 📁 Project Structure
 
-### Step 2: Configure for Your Expendable ERP
+```
+solidworks-bom-expendable-transfer/
+├── run_windows_tools.sh              # Main launcher (START HERE)
+├── Test_ERP_Detection.ps1             # ERP detection and validation
+├── Find_Expendable_ERP.bat           # ERP discovery tool
+├── Run_BOM_Transfer.bat              # BOM processing automation
+├── config.json                       # Configuration settings
+├── Scripts/
+│   ├── SolidWorks_BOM_Export.swp     # SolidWorks VBA macro
+│   ├── Process_BOM_for_Expendable.ps1 # PowerShell BOM processor
+│   ├── Expendable_UI_Automation.ps1  # UI automation scripts
+│   └── Find_Expendable_Database.ps1  # Database discovery
+└── Templates/
+    └── SolidWorks_Custom_Properties_Template.txt
+```
 
-Edit `config.json` to match your Expendable ERP system requirements:
+## 🔍 ERP Detection Results
+
+The tool successfully detects:
+- **Process Name**: `ESIMRP`
+- **Window Title**: `"Expandable"`
+- **Status**: ✅ Running and ready for automation
+
+## ⚙️ How It Works
+
+### 1. BOM Export from SolidWorks
+- Use the included SolidWorks macro (`Scripts/SolidWorks_BOM_Export.swp`)
+- Export BOM data as CSV from your assembly
+- Macro extracts custom properties and component information
+
+### 2. Data Processing
+- PowerShell scripts process the raw BOM data
+- Maps SolidWorks fields to Expendable ERP format
+- Handles data validation and formatting
+
+### 3. ERP Integration
+- **UI Automation**: Automated data entry into Expendable ERP interface
+- **Database Direct**: Optional direct database access (advanced users)
+- **Manual Reference**: Structured CSV for manual entry
+
+## 🛠️ System Requirements
+
+- **Windows 10/11**
+- **SolidWorks 2022** (or compatible version)
+- **PowerShell 5.0+**
+- **Expendable ERP** (ESIMRP) running
+- **Git Bash** (recommended) or Windows Command Prompt
+
+## 📋 Configuration
+
+Edit `config.json` for your specific requirements:
 
 ```json
 {
   "expendable_settings": {
-    "default_category": "Your_Category_Name",
-    "default_location": "Your_Warehouse_Name",
-    "currency_symbol": "$"
+    "default_category": "Parts",
+    "default_location": "Main Warehouse", 
+    "currency_symbol": "$",
+    "date_format": "MM/dd/yyyy"
+  },
+  "field_mapping": {
+    "part_number": "Part Number",
+    "description": "Description", 
+    "quantity": "Quantity"
   }
 }
 ```
 
-### Step 3: Set Up SolidWorks Custom Properties
-
-For best results, set up these custom properties in your SolidWorks parts:
-
-- **PartNo**: Part number or SKU
-- **Description**: Part description
-- **Material**: Material type
-- **Weight**: Part weight
-- **Cost**: Unit cost
-- **Supplier**: Preferred supplier
-
-## 📋 How to Use
-
-### Method 1: Manual Process
-
-1. **Export BOM from SolidWorks:**
-   - Open your assembly in SolidWorks
-   - Run the `SolidWorks_BOM_Export` macro
-   - CSV file is saved to `Exports\` folder
-
-2. **Process for Expendable ERP:**
-   - Double-click `Run_BOM_Transfer.bat`
-   - Processed file appears in `Processed\` folder
-
-3. **Import to Expendable ERP:**
-   - Follow instructions in `Import_Instructions.txt`
-   - Import the `*_Expendable_Ready.csv` file
-
-### Method 2: Automated Workflow
-
-Create a desktop shortcut to `Run_BOM_Transfer.bat` for quick access after exporting from SolidWorks.
-
-## ⚙️ Configuration Options
-
-### Expendable Settings
-
-```json
-"expendable_settings": {
-  "date_format": "MM/dd/yyyy",        // Date format for Expendable ERP
-  "currency_symbol": "$",             // Currency symbol
-  "default_category": "Parts",        // Default item category
-  "default_location": "Main Warehouse", // Default warehouse location
-  "default_unit_of_measure": "EA"     // Default unit of measure
-}
-```
-
-### Field Mapping
-
-Customize how SolidWorks fields map to Expendable ERP fields:
-
-```json
-"field_mapping": {
-  "part_number": "Part Number",       // Maps to Expendable part number field
-  "description": "Description",       // Maps to Expendable description field
-  "quantity": "Quantity"              // Maps to Expendable quantity field
-}
-```
-
-### SolidWorks Custom Properties
-
-Configure which custom properties to extract:
-
-```json
-"solidworks_custom_properties": {
-  "part_number_property": "PartNo",   // Custom property name for part number
-  "description_property": "Description",
-  "material_property": "Material",
-  "cost_property": "Cost"
-}
-```
-
-## 📊 Output Format
-
-The processed CSV file includes these columns for Expendable ERP:
-
-| Column | Description | Source |
-|--------|-------------|--------|
-| Item | Item number | Auto-generated |
-| Part Number | Part number/SKU | SolidWorks custom property or filename |
-| Description | Part description | SolidWorks custom property |
-| Quantity | Quantity in assembly | Calculated from BOM |
-| Material | Material type | SolidWorks custom property |
-| Weight | Part weight | SolidWorks custom property |
-| Cost | Unit cost | SolidWorks custom property |
-| Supplier | Preferred supplier | SolidWorks custom property |
-| Category | Item category | From configuration |
-| Location | Warehouse location | From configuration |
-| UOM | Unit of measure | From configuration |
-| Date_Created | Creation date | Current date |
-| Status | Item status | "Active" |
-
 ## 🔧 Troubleshooting
 
-### Common Issues
-
-**1. "No CSV files found" error**
-- Run the SolidWorks macro first to export BOM data
-- Check that files are in the `Exports\` folder
-
-**2. PowerShell execution error**
-- Run PowerShell as Administrator
-- Execute: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
-
-**3. Missing custom properties**
-- Add custom properties to your SolidWorks parts
-- Or modify the macro to use default values
-
-**4. Import errors in Expendable ERP**
-- Check field mapping in `config.json`
-- Verify column names match Expendable ERP requirements
-- Review `Import_Instructions.txt`
-
-### Advanced Troubleshooting
-
-**Enable PowerShell logging:**
+### PowerShell Execution Policy Issues
+If you encounter script execution errors:
 ```powershell
-# Add this to the beginning of Process_BOM_for_Expendable.ps1
-Start-Transcript -Path "C:\Users\Antoi\SolidWorks_BOM_Transfer\debug.log"
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
-**Test macro in SolidWorks:**
-- Open VBA editor in SolidWorks (Alt + F11)
-- Set breakpoints to debug issues
-- Check that assembly is open and contains components
+### ERP Not Detected
+1. Ensure Expendable ERP (ESIMRP) is running
+2. Check the window title shows "Expandable"
+3. Run option 2 in the launcher to verify detection
 
-## 🔄 Workflow Integration
+### BOM Processing Issues
+1. Verify SolidWorks assembly is open
+2. Check custom properties are set in parts
+3. Ensure BOM export completed successfully
 
-### Daily Use Workflow
+## 🎯 Workflow
 
-1. **Design Phase**: Create assembly in SolidWorks with proper custom properties
-2. **Export Phase**: Run macro to export BOM → `Exports\` folder
-3. **Process Phase**: Run batch file → Creates `*_Expendable_Ready.csv`
-4. **Import Phase**: Import CSV into Expendable ERP
-5. **Cleanup**: Files automatically archived with timestamps
+1. **Prepare**: Open your SolidWorks assembly
+2. **Export**: Run the SolidWorks BOM export macro
+3. **Launch**: Start `./run_windows_tools.sh`
+4. **Detect**: Use option 2 to verify ERP detection
+5. **Process**: Use option 3 to run BOM processing
+6. **Complete**: Data is transferred to Expendable ERP
 
-### Batch Processing
+## 📝 Notes
 
-For multiple assemblies:
+- This tool uses UI automation to interact with Expendable ERP
+- Ensure ERP is in the correct screen/mode before running automation
+- Test with small datasets first before processing large BOMs
+- The tool is designed specifically for the ESIMRP version of Expendable ERP
 
-1. Export all BOMs to `Exports\` folder using the macro
-2. Run `Run_BOM_Transfer.bat` once to process all files
-3. Import all `*_Expendable_Ready.csv` files to Expendable ERP
+## 🔄 Version History
 
-## 📝 Customization
-
-### Adding Custom Fields
-
-1. **Modify the SolidWorks macro:**
-   ```vb
-   ' Add your custom property
-   customValue = GetCustomProperty(swCompModel, "YourCustomProperty")
-   ' Add to CSV output
-   Print #fileNum, ... & "," & EscapeCSV(customValue)
-   ```
-
-2. **Update PowerShell script:**
-   ```powershell
-   $processedRow["Your_Custom_Field"] = $row.YourCustomProperty
-   ```
-
-3. **Update configuration:**
-   ```json
-   "field_mapping": {
-     "your_custom_field": "Your Custom Field"
-   }
-   ```
-
-### Integration with Other Systems
-
-The PowerShell script can be modified to output to other formats:
-- XML for advanced ERP systems
-- JSON for API integration
-- Direct database connection
-
-## 📞 Support
-
-### System Requirements
-
-- Windows 10/11
-- SolidWorks 2022 (may work with other versions)
-- PowerShell 5.0 or later
-- Expendable ERP system with CSV import capability
-
-### Getting Help
-
-1. Check this README for common solutions
-2. Review the configuration file settings
-3. Check the debug log files in the `Processed\` folder
-4. Verify SolidWorks custom properties are set correctly
-
-### Version History
-
-- **v1.0** - Initial release with basic BOM export
-- **v1.1** - Added Expendable ERP formatting
-- **v1.2** - Added configuration file support
-- **v1.3** - Added batch processing and automation
+- **v2.0** - Streamlined interface, working ERP detection
+- **v1.3** - UI automation integration  
+- **v1.2** - Configuration file support
+- **v1.1** - Expendable ERP formatting
+- **v1.0** - Initial BOM export functionality
 
 ---
 
-**Created:** $(Get-Date)  
-**Last Updated:** $(Get-Date)  
-**Compatible with:** SolidWorks 2022, Expendable ERP 
+**Last Updated**: $(Get-Date)  
+**Compatible with**: SolidWorks 2022, Expendable ERP (ESIMRP), Windows 10/11 

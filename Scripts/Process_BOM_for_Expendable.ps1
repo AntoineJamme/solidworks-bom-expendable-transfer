@@ -147,9 +147,13 @@ function Format-Currency {
 function Generate-ImportInstructions {
     param([string]$outputPath)
     
-    $instructions = @"
-EXPENDABLE ERP IMPORT INSTRUCTIONS
-==================================
+    # Check if CSV import is available (set to $false since confirmed not available)
+    $hasCSVImport = $false
+    
+    if ($hasCSVImport) {
+        $instructions = @"
+EXPENDABLE ERP IMPORT INSTRUCTIONS (CSV METHOD)
+===============================================
 
 1. Open Expendable ERP system
 2. Navigate to: Inventory > Import > Parts/Items
@@ -178,10 +182,68 @@ EXPENDABLE ERP IMPORT INSTRUCTIONS
 
 Generated: $(Get-Date)
 "@
+        $instructionsFile = Join-Path $outputPath "Import_Instructions.txt"
+    } else {
+        $instructions = @"
+EXPENDABLE ERP INTEGRATION ALTERNATIVES
+======================================
 
-    $instructionsFile = Join-Path $outputPath "Import_Instructions.txt"
+❌ CSV Import is NOT available in Expendable ERP
+
+ALTERNATIVE SOLUTIONS:
+
+🤖 OPTION 1: UI AUTOMATION (Recommended)
+────────────────────────────────────────
+1. Ensure Expendable ERP is open and visible
+2. Run the UI automation script:
+   PowerShell -ExecutionPolicy Bypass -File "Scripts\Expendable_UI_Automation.ps1" -CSVFilePath "*_Expendable_Ready.csv"
+
+Note: The UI automation script requires customization for your specific Expendable ERP interface
+
+🔍 OPTION 2: DATABASE DIRECT ACCESS
+──────────────────────────────────────
+1. Run database detection script:
+   PowerShell -ExecutionPolicy Bypass -File "Scripts\Find_Expendable_Database.ps1"
+2. If database found, develop direct SQL insert scripts
+3. Backup database before making changes
+
+📝 OPTION 3: MANUAL ENTRY
+─────────────────────────
+Open the processed CSV file: *_Expendable_Ready.csv
+For each row, manually enter into Expendable ERP:
+- Item Number, Part Number, Description, Quantity, etc.
+
+🔧 OPTION 4: THIRD-PARTY SOLUTIONS
+─────────────────────────────────
+Consider integration tools like:
+- AutoIt for GUI automation
+- RPA tools (Power Automate, UiPath)
+- Custom .NET applications using UI Automation framework
+
+Field Mapping Reference:
+───────────────────────
+CSV Column          → Expendable Field
+Item               → Item Number
+Part Number        → Part Number/SKU
+Description        → Description
+Quantity           → On Hand Quantity
+Material           → Material Type
+Weight             → Unit Weight
+Cost               → Unit Cost
+Supplier           → Preferred Vendor
+Category           → Item Category
+Location           → Warehouse Location
+UOM                → Unit of Measure
+
+Generated: $(Get-Date)
+
+⚠️  IMPORTANT: Test any automation with a small subset of data first!
+"@
+        $instructionsFile = Join-Path $outputPath "Integration_Alternatives.txt"
+    }
+    
     $instructions | Out-File $instructionsFile
-    Write-Host "✓ Import instructions saved to: Import_Instructions.txt" -ForegroundColor Cyan
+    Write-Host "✓ Integration instructions saved to: $(Split-Path $instructionsFile -Leaf)" -ForegroundColor Cyan
 }
 
 # Main execution
