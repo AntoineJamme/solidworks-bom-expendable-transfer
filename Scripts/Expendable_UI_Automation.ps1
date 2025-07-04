@@ -79,4 +79,4 @@ foreach ($item in $bomData) {
 }
 
 Write-Host "UI Automation completed!" -ForegroundColor Green
-Write-Host "Manual verification recommended for accuracy." -ForegroundColor Yellow 
+Write-Host "Manual verification recommended for accuracy." -ForegroundColor Yellow
