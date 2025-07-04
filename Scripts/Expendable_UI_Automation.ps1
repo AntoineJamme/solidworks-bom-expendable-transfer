@@ -1,5 +1,4 @@
-# Expendable ERP UI Automation Script
-# This script automates data entry into Expendable ERP desktop application
+   # This script automates data entry into Expendable ERP desktop application
 
 param(
     [Parameter(Mandatory=$true)]
@@ -10,6 +9,7 @@ param(
 Add-Type -AssemblyName UIAutomationClient
 Add-Type -AssemblyName UIAutomationTypes
 Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName Microsoft.VisualBasic
 
 # Import CSV data from SolidWorks BOM export
 $bomData = Import-Csv $CSVFilePath
@@ -75,7 +75,7 @@ foreach ($item in $bomData) {
     [System.Windows.Forms.SendKeys]::SendWait("^s")
     Start-Sleep -Milliseconds 1000
     
-    Write-Host "✓ Added: $($item.PartNumber)" -ForegroundColor Green
+    Write-Host "Added: $($item.PartNumber)" -ForegroundColor Green
 }
 
 Write-Host "UI Automation completed!" -ForegroundColor Green
