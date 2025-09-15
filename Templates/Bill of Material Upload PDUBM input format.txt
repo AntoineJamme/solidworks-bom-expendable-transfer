@@ -1,0 +1,224 @@
+Tables Accessed - Parts Master Upload
+Input Text File
+
+Retrieve records for processing. Records will be bypassed if Part ID, Part Desc or Processed Flag is blank.
+
+The input file format:
+
+PART_ID<tab> PART_UM<tab>PART_STATUS<tab> PART_DESC<tab> SEARCH_NAME<tab> PART_CLASS<tab> PART_TYPE<tab> SUBST_PART<tab>CATG_CODE<tab> ECN<tab> ECN_EFF_DATE<tab> PENDING_ECN<tab> DWG_REV<tab> DWG_SIZE<tab> ORIG_REL_DATE<tab> DATE_ACTIVE<tab> PART_HOLD_CODE<tab> PLANNER_ID<tab> ABC_CODE<tab> COMM_CODE<tab> PRODUCT_LINE<tab> MRP_FLAG<tab> MPS_CODE<tab> FORECAST_QTY<tab> PLAN_HORIZON<tab> ORDER_QTY<tab> MAX_ORDER_QTY<tab> YIELD_FACTOR<tab> DEF_STORES_CODE<tab> LOT_CONTROL<tab> SHELF_LIFE<tab> STOCK_DEC<tab> VENDR_LEAD_TIME<tab> RECEIVING_LT<tab> KIT_LT<tab> MFG_LT<tab> SHIP_LT<tab> PLAN_LEAD_TIME<tab> CUM_LT<tab>BUYER_ID<tab> PREF_VENDOR<tab> BUY_UM<tab> BUY_CONV<tab> BUY_DEC<tab> WEIGHT<tab> VOLUME<tab> SO_ORDER_QTY<tab> MIN_SALES_QTY<tab> QTY_PER_CARTON<tab> SALE_UM<tab> SALE_CONV<tab> SALE_DEC<tab> WARRANTY_DAYS<tab> UPC_CODE<tab> FRT_CLASS<tab> ITF_CODE<tab> SLX_PART<tab> ORIG_COUNTRY<tab> SN_REQD<tab> SALES_MARKET<tab> SN_REQD_INV<tab> STD_WORK_1<tab> STD_WORK_2<tab> STD_WORK_3<tab> STD_1_HRS<tab> STD_2_HRS<tab>STD_3_HRS<tab> STD_MTL_CST_ADD<tab> STD_OH_PCT_BUY<tab> STD_OH_PCT_OUT<tab>STD_OTH_CST_ADD<tab>STD_OUT_CST_ADD<tab> COMMENT_ID<tab>ICFPM_USER_1<tab> ICFPM_USER_2<tab>ICFPM_USER_3<tab> ICFPM_USER_4<tab> ICFPM_USER_5<tab>ICFPM_USER_6<tab> ICFPM_USER_7<tab> ICFPM_USER_8<tab> ICFPM_USER_9<tab> ICFPM_USER_10<tab> ICFPM_USER_11<tab>ICFPM_USER_12<tab> ICFPM_USER_13<tab> ICFPM_USER_14<tab> ICFPM_USER_15<tab> ICFPM_USER_16<tab> ROHS_COMP_COMM<tab> ROHS_COMP_DATE<tab> ROHS_COMP_ST<tab> ROHS_DOC_COMM<tab> ROHS_DOC_DATE<tab> ROHS_DOC_ST<tab> ROHS_PROC_COMM<tab> ROHS_PROC_DATE<tab> ROHS_PROC_ST<tab> WEEE_RECY_COMM<tab> WEEE_RECY_DATE<tab> WEEE_RECY_ST<tab> NOTE_TEXT<tab> Processed Flag<carriage return>
+
+Note- the minimal Required columns are Part ID, Part Desc, and Processed Flag
+
+Data in the second and subsequent rows must correspond to the following Expandable data fields:
+
+(See below for important formatting note.)
+
+Part ID
+
+Part UM
+
+Part Status
+
+Part Desc
+
+Search Name
+
+Part Class
+
+Part Type
+
+Subst_Part
+
+Catg Code
+
+ECN
+
+ECN Eff Date
+
+Pending ECN
+
+Dwg Rev
+
+Dwg Size
+
+Orig Rel Date
+
+Date Active
+
+Part Hold Code
+
+Planner ID
+
+ABC Code
+
+Comm Code
+
+Product Line
+
+MRP Flag
+
+MPS Code
+
+Forecast Qty
+
+Plan Horizon
+
+Order Qty
+
+Max Order Qty
+
+Yield Factor
+
+Def Stores Code
+
+Lot Control
+
+Shelf Life
+
+Stock Dec
+
+Vendr Lead Time
+
+Receiving LT
+
+Kit LT
+
+Mfg LT
+
+Ship LT
+
+Plan Lead Time
+
+Cum LT
+
+Buyer ID
+
+Pref Vendor
+
+Buy UM
+
+Buy Conv
+
+Buy Dec
+
+Weight
+
+Volume
+
+SO Order Qty
+
+Min Sales_Qty
+
+Qty Per Carton
+
+Sale UM
+
+Sale Conv
+
+Sale Dec
+
+Warranty Days
+
+UPC Code
+
+Frt Class
+
+ITF Code
+
+SLX Part
+
+Orig Country
+
+SN Reqd
+
+Sales Market
+
+SN Reqd Inv
+
+Std Work 1
+
+Std Work 2
+
+Std Work 3
+
+Std 1 Hrs
+
+Std 2 Hrs
+
+Std 3 Hrs
+
+Std Mtl Cst Add
+
+Std Oh Pct Buy
+
+Std Ohd Pct Out
+
+Std Oth Cst Add
+
+Std Out Cost Add
+
+Comment ID
+
+ICFPM User 1
+
+ICFPM User 2
+
+ICFPM User 3
+
+ICFPM User 4
+
+ICFPM User 5
+
+ICFPM User 6
+
+ICFPM User 7
+
+ICFPM User 8
+
+ICFPM User 9
+
+ICFPM User 10
+
+ICFPM User 11
+
+ICFPM User 12
+
+ICFPM User 13
+
+ICFPM User 14
+
+ICFPM User 15
+
+ICFPM User 16
+
+Rohs Comp Comm
+
+Rohs Comp Date
+
+Rohs Comp St
+
+Rohs Doc Comm
+
+Rohs Doc Date
+
+Rohs Doc St
+
+Rohs Proc Comm
+
+Rohs Proc Date
+
+Rohs Proc St
+
+Weee Recy Comm
+
+Weee Recy Date
+
+Weee Recy St
+
+Note Text (from ICFPMN)
+
+Processed Flag must be equal to N. It will be set to Y when the record is successfully processed.
+
+Numeric fields cannot contain commas, dashes instead of zeroes or blanks, or parentheses to signify a negative amount. An error message will be displayed in the log file (nnn is not a valid floating point value) and the data in the line with the error will not be uploaded.
+
+  

@@ -38,8 +38,48 @@ Sub main()
     
     Set swAssy = swModel
     
-    ExportIndentedBOM
+    ' Export CSV and capture BOM relationships for later use
+    Dim capturedBomRelationships As Object
+    Set capturedBomRelationships = ExportIndentedBOMWithCapture()
+    
+    ' Also export Expendable ERP text files for ICUPM (Parts Master) and PDUBM (BOM)
+    ExportExpendableTextFiles capturedBomRelationships
 End Sub
+
+' =============================================================
+Function ExportIndentedBOMWithCapture() As Object
+    Dim fileName As String
+    Dim filePath As String
+    
+    ' Ensure export directory exists
+    If Dir(EXPORT_PATH, vbDirectory) = "" Then MkDir EXPORT_PATH
+    
+    ' Build unique filename – <Assembly>_IndentedBOM_yyyyMMdd_HHmmss.csv
+    fileName = GetFileNameWithoutExt(swModel.GetPathName()) & "_IndentedBOM_" & _
+               Format(Now, "yyyymmdd_hhnnss") & ".csv"
+    filePath = EXPORT_PATH & fileName
+    
+    fileNum = FreeFile
+    Open filePath For Output As #fileNum
+        Print #fileNum, CSV_HEADER
+        
+        ' Use global tracking to prevent duplicate items across the entire BOM
+        Dim globalItemDict As Object
+        Set globalItemDict = CreateObject("Scripting.Dictionary")
+        
+        ' Track parent-child relationships during CSV generation for PDUBM
+        Dim bomRelationships As Object
+        Set bomRelationships = CreateObject("Scripting.Dictionary")
+        
+        ' Start recursion with top-level (root) assembly children
+        ProcessAssemblyLevelWithGlobalDedup swAssy, "", 1, 1, globalItemDict, bomRelationships
+    Close #fileNum
+    
+    MsgBox "Indented BOM exported to:" & vbCrLf & filePath, vbInformation
+    
+    ' Return the captured relationships
+    Set ExportIndentedBOMWithCapture = bomRelationships
+End Function
 
 ' =============================================================
 Sub ExportIndentedBOM()
@@ -58,15 +98,521 @@ Sub ExportIndentedBOM()
     Open filePath For Output As #fileNum
         Print #fileNum, CSV_HEADER
         
+        ' Use global tracking to prevent duplicate items across the entire BOM
+        Dim globalItemDict As Object
+        Set globalItemDict = CreateObject("Scripting.Dictionary")
+        
+        ' Track parent-child relationships during CSV generation for PDUBM
+        Dim bomRelationships As Object
+        Set bomRelationships = CreateObject("Scripting.Dictionary")
+        
         ' Start recursion with top-level (root) assembly children
-        ProcessAssemblyLevel swAssy, "", 1, 1
+        ProcessAssemblyLevelWithGlobalDedup swAssy, "", 1, 1, globalItemDict, bomRelationships
     Close #fileNum
     
     MsgBox "Indented BOM exported to:" & vbCrLf & filePath, vbInformation
 End Sub
 
 ' =============================================================
-' Recursively processes a SolidWorks assembly level and writes CSV rows.
+' Exports two Expendable ERP text files:
+'  - Parts Master (ICUPM): minimal required fields per part
+'  - Bill of Material (PDUBM): parent-child-qty relationships
+Sub ExportExpendableTextFiles(bomRelationships As Object)
+    Dim ts As String
+    ts = Format(Now, "yyyymmdd_hhnnss")
+    
+    ' Build file paths in the same export directory
+    If Dir(EXPORT_PATH, vbDirectory) = "" Then MkDir EXPORT_PATH
+    
+    Dim baseName As String
+    baseName = GetFileNameWithoutExt(swModel.GetPathName())
+    
+    Dim icupmPath As String
+    Dim pdubmPath As String
+    icupmPath = EXPORT_PATH & baseName & "_ICUPM_" & ts & ".txt"
+    pdubmPath = EXPORT_PATH & baseName & "_PDUBM_" & ts & ".txt"
+    
+    ' Collect unique parts across entire assembly (suppressed ignored)
+    Dim partsDict As Object
+    Set partsDict = CreateObject("Scripting.Dictionary")
+    
+    ' Include the root assembly itself as a part if its part number is numeric-only
+    Dim rootPn As String
+    Dim rootDesc As String
+    rootPn = GetPartNumber(swModel)
+    rootDesc = GetCustomProperty(swModel, "Description")
+    If IsNumericOnly(rootPn) Then
+        If Not partsDict.Exists(rootPn) Then partsDict.Add rootPn, rootDesc
+    End If
+    CollectUniqueParts swAssy, partsDict
+    
+    ' Export ICUPM (Parts Master) minimal fields: PART_ID, PART_DESC, Processed Flag
+    Dim fnIC As Integer
+    fnIC = FreeFile
+    Open icupmPath For Output As #fnIC
+        Dim key As Variant
+        For Each key In partsDict.Keys
+            Dim partId As String
+            Dim partDesc As String
+            partId = CStr(key)
+            partDesc = CStr(partsDict(key))
+            If partDesc = "" Then partDesc = " "
+            ' Minimal required columns only, tab-separated, no header
+            Print #fnIC, EscapeTabs(partId) & vbTab & _
+                          EscapeTabs(partDesc) & vbTab & _
+                          "N"
+        Next key
+    Close #fnIC
+    
+    ' Export PDUBM (BOM): PARENT_PART_ID, COMPONENT_PART_ID, QTY_PER, Processed Flag
+    Dim fnPD As Integer
+    fnPD = FreeFile
+    Open pdubmPath For Output As #fnPD
+        ' Use the relationships captured during CSV generation
+        Dim relKey As Variant
+        For Each relKey In bomRelationships.Keys
+            Dim parts() As String
+            parts = Split(CStr(relKey), "|")
+            If UBound(parts) = 1 Then
+                Dim parentPn As String
+                Dim childPn As String
+                Dim qty As Long
+                parentPn = parts(0)
+                childPn = parts(1)
+                qty = CLng(bomRelationships(relKey))
+                
+                Print #fnPD, EscapeTabs(parentPn) & vbTab & _
+                              EscapeTabs(childPn) & vbTab & _
+                              CStr(qty) & vbTab & _
+                              "N"
+            End If
+        Next relKey
+    Close #fnPD
+    
+    MsgBox "Expendable text files exported:" & vbCrLf & _
+           "ICUPM (Parts Master): " & icupmPath & vbCrLf & _
+           "PDUBM (BOM): " & pdubmPath, vbInformation
+End Sub
+
+' =============================================================
+' Recursively collect all unique parts in the assembly tree, ignoring suppressed
+Sub CollectUniqueParts(assy As SldWorks.AssemblyDoc, partsDict As Object)
+    Dim vComps As Variant
+    vComps = assy.GetComponents(False)
+    If IsEmpty(vComps) Then Exit Sub
+    
+    Dim i As Integer
+    For i = 0 To UBound(vComps)
+        Dim c As SldWorks.Component2
+        Set c = vComps(i)
+        If c Is Nothing Then GoTo NextC
+        If c.IsSuppressed Then GoTo NextC
+        
+        Dim m As SldWorks.ModelDoc2
+        Set m = c.GetModelDoc2()
+        If m Is Nothing Then GoTo NextC
+        
+        If m.GetType() = swDocumentTypes_e.swDocPART Then
+            Dim pn As String
+            Dim desc As String
+            pn = GetPartNumber(m)
+            desc = GetCustomProperty(m, "Description")
+            ' Only include parts whose part numbers contain no letters
+            If IsNumericOnly(pn) Then
+                If Not partsDict.Exists(pn) Then partsDict.Add pn, desc
+            End If
+        ElseIf m.GetType() = swDocumentTypes_e.swDocASSEMBLY Then
+            ' Add the sub-assembly itself as a part if numeric-only, then recurse
+            Dim aPn As String
+            Dim aDesc As String
+            aPn = GetPartNumber(m)
+            aDesc = GetCustomProperty(m, "Description")
+            If IsNumericOnly(aPn) Then
+                If Not partsDict.Exists(aPn) Then partsDict.Add aPn, aDesc
+            End If
+            Dim subAssy As SldWorks.AssemblyDoc
+            Set subAssy = m
+            CollectUniqueParts subAssy, partsDict
+        End If
+NextC:
+    Next i
+End Sub
+
+' =============================================================
+' Recursively export parent-child quantity rows for BOM relationships (simplified, no deduplication)
+Sub ExportBOMRelationshipsSimple(assy As SldWorks.AssemblyDoc, outHandle As Integer)
+    Dim parentModel As SldWorks.ModelDoc2
+    Set parentModel = assy
+    Dim parentPartNo As String
+    parentPartNo = GetPartNumber(parentModel)
+    
+    Dim vComps As Variant
+    vComps = assy.GetComponents(False)
+    If IsEmpty(vComps) Then Exit Sub
+    
+    ' Count quantities per unique child part at this level
+    Dim qtyDict As Object
+    Set qtyDict = CreateObject("Scripting.Dictionary")
+    
+    Dim i As Integer
+    For i = 0 To UBound(vComps)
+        Dim c As SldWorks.Component2
+        Set c = vComps(i)
+        If c Is Nothing Then GoTo NextChild
+        If c.IsSuppressed Then GoTo NextChild
+        
+        Dim m As SldWorks.ModelDoc2
+        Set m = c.GetModelDoc2()
+        If m Is Nothing Then GoTo NextChild
+        
+        Dim childPn As String
+        childPn = GetPartNumber(m)
+        
+        ' Skip children whose part numbers contain letters
+        If Not IsNumericOnly(childPn) Then GoTo NextChild
+        
+        If qtyDict.Exists(childPn) Then
+            qtyDict(childPn) = CLng(qtyDict(childPn)) + 1
+        Else
+            qtyDict.Add childPn, 1
+        End If
+NextChild:
+    Next i
+    
+    ' Emit rows for each child at this level
+    Dim key As Variant
+    ' Only emit rows if the parent part number contains no letters
+    If IsNumericOnly(parentPartNo) Then
+        For Each key In qtyDict.Keys
+            Dim qty As Long
+            qty = CLng(qtyDict(key))
+            Print #outHandle, EscapeTabs(parentPartNo) & vbTab & _
+                              EscapeTabs(CStr(key)) & vbTab & _
+                              CStr(qty) & vbTab & _
+                              "N"
+        Next key
+    End If
+    
+    ' Recurse into sub-assemblies
+    For i = 0 To UBound(vComps)
+        Dim c2 As SldWorks.Component2
+        Set c2 = vComps(i)
+        If c2 Is Nothing Then GoTo NextChild2
+        If c2.IsSuppressed Then GoTo NextChild2
+        Dim m2 As SldWorks.ModelDoc2
+        Set m2 = c2.GetModelDoc2()
+        If m2 Is Nothing Then GoTo NextChild2
+        If m2.GetType() = swDocumentTypes_e.swDocASSEMBLY Then
+            Dim subAssyPn As String
+            subAssyPn = GetPartNumber(m2)
+            ' Only recurse if this sub-assembly's part number is numeric-only
+            If IsNumericOnly(subAssyPn) Then
+                Dim subAssy2 As SldWorks.AssemblyDoc
+                Set subAssy2 = m2
+                ExportBOMRelationshipsSimple subAssy2, outHandle
+            End If
+        End If
+NextChild2:
+    Next i
+End Sub
+
+' =============================================================
+' Recursively export parent-child quantity rows for BOM relationships with deduplication (DEPRECATED)
+Sub ExportBOMRelationshipsWithDedup(assy As SldWorks.AssemblyDoc, outHandle As Integer, bomRelDict As Object)
+    Dim parentModel As SldWorks.ModelDoc2
+    Set parentModel = assy
+    Dim parentPartNo As String
+    parentPartNo = GetPartNumber(parentModel)
+    
+    Dim vComps As Variant
+    vComps = assy.GetComponents(False)
+    If IsEmpty(vComps) Then Exit Sub
+    
+    ' Count quantities per unique child part at this level
+    Dim qtyDict As Object
+    Set qtyDict = CreateObject("Scripting.Dictionary")
+    
+    Dim i As Integer
+    For i = 0 To UBound(vComps)
+        Dim c As SldWorks.Component2
+        Set c = vComps(i)
+        If c Is Nothing Then GoTo NextChild
+        If c.IsSuppressed Then GoTo NextChild
+        
+        Dim m As SldWorks.ModelDoc2
+        Set m = c.GetModelDoc2()
+        If m Is Nothing Then GoTo NextChild
+        
+        Dim childPn As String
+        childPn = GetPartNumber(m)
+        
+        ' Skip children whose part numbers contain letters
+        If Not IsNumericOnly(childPn) Then GoTo NextChild
+        
+        If qtyDict.Exists(childPn) Then
+            qtyDict(childPn) = CLng(qtyDict(childPn)) + 1
+        Else
+            qtyDict.Add childPn, 1
+        End If
+NextChild:
+    Next i
+    
+    ' Emit rows for each child at this level (only if not already exported)
+    Dim key As Variant
+    ' Only emit rows if the parent part number contains no letters
+    If IsNumericOnly(parentPartNo) Then
+        For Each key In qtyDict.Keys
+            Dim relKey As String
+            relKey = parentPartNo & "|" & CStr(key)
+            
+            ' Only export this relationship if we haven't seen it before
+            If Not bomRelDict.Exists(relKey) Then
+                Dim qty As Long
+                qty = CLng(qtyDict(key))
+                Print #outHandle, EscapeTabs(parentPartNo) & vbTab & _
+                                  EscapeTabs(CStr(key)) & vbTab & _
+                                  CStr(qty) & vbTab & _
+                                  "N"
+                bomRelDict.Add relKey, True
+            End If
+        Next key
+    End If
+    
+    ' Recurse into sub-assemblies
+    For i = 0 To UBound(vComps)
+        Dim c2 As SldWorks.Component2
+        Set c2 = vComps(i)
+        If c2 Is Nothing Then GoTo NextChild2
+        If c2.IsSuppressed Then GoTo NextChild2
+        Dim m2 As SldWorks.ModelDoc2
+        Set m2 = c2.GetModelDoc2()
+        If m2 Is Nothing Then GoTo NextChild2
+        If m2.GetType() = swDocumentTypes_e.swDocASSEMBLY Then
+            Dim subAssyPn As String
+            subAssyPn = GetPartNumber(m2)
+            ' Only recurse if this sub-assembly's part number is numeric-only
+            If IsNumericOnly(subAssyPn) Then
+                Dim subAssy2 As SldWorks.AssemblyDoc
+                Set subAssy2 = m2
+                ExportBOMRelationshipsWithDedup subAssy2, outHandle, bomRelDict
+            End If
+        End If
+NextChild2:
+    Next i
+End Sub
+
+' =============================================================
+' Recursively export parent-child quantity rows for BOM relationships (DEPRECATED - use WithDedup version)
+Sub ExportBOMRelationships(assy As SldWorks.AssemblyDoc, outHandle As Integer)
+    Dim parentModel As SldWorks.ModelDoc2
+    Set parentModel = assy
+    Dim parentPartNo As String
+    parentPartNo = GetPartNumber(parentModel)
+    
+    Dim vComps As Variant
+    vComps = assy.GetComponents(False)
+    If IsEmpty(vComps) Then Exit Sub
+    
+    ' Count quantities per unique child part at this level
+    Dim qtyDict As Object
+    Set qtyDict = CreateObject("Scripting.Dictionary")
+    
+    Dim typeDict As Object
+    Set typeDict = CreateObject("Scripting.Dictionary") ' store child type: PART/ASSY
+    
+    Dim i As Integer
+    For i = 0 To UBound(vComps)
+        Dim c As SldWorks.Component2
+        Set c = vComps(i)
+        If c Is Nothing Then GoTo NextChild
+        If c.IsSuppressed Then GoTo NextChild
+        
+        Dim m As SldWorks.ModelDoc2
+        Set m = c.GetModelDoc2()
+        If m Is Nothing Then GoTo NextChild
+        
+        Dim childPn As String
+        childPn = GetPartNumber(m)
+        
+        ' Skip children whose part numbers contain letters
+        If Not IsNumericOnly(childPn) Then GoTo NextChild
+        
+        If qtyDict.Exists(childPn) Then
+            qtyDict(childPn) = CLng(qtyDict(childPn)) + 1
+        Else
+            qtyDict.Add childPn, 1
+            If m.GetType() = swDocumentTypes_e.swDocPART Then
+                typeDict.Add childPn, "PART"
+            ElseIf m.GetType() = swDocumentTypes_e.swDocASSEMBLY Then
+                typeDict.Add childPn, "ASSY"
+            Else
+                typeDict.Add childPn, "OTHER"
+            End If
+        End If
+NextChild:
+    Next i
+    
+    ' Emit rows for each child at this level
+    Dim key As Variant
+    ' Only emit rows if the parent part number contains no letters
+    If IsNumericOnly(parentPartNo) Then
+        For Each key In qtyDict.Keys
+            Dim qty As Long
+            qty = CLng(qtyDict(key))
+            Print #outHandle, EscapeTabs(parentPartNo) & vbTab & _
+                              EscapeTabs(CStr(key)) & vbTab & _
+                              CStr(qty) & vbTab & _
+                              "N"
+        Next key
+    End If
+    
+    ' Recurse into sub-assemblies
+    For i = 0 To UBound(vComps)
+        Dim c2 As SldWorks.Component2
+        Set c2 = vComps(i)
+        If c2 Is Nothing Then GoTo NextChild2
+        If c2.IsSuppressed Then GoTo NextChild2
+        Dim m2 As SldWorks.ModelDoc2
+        Set m2 = c2.GetModelDoc2()
+        If m2 Is Nothing Then GoTo NextChild2
+        If m2.GetType() = swDocumentTypes_e.swDocASSEMBLY Then
+            Dim subAssyPn As String
+            subAssyPn = GetPartNumber(m2)
+            ' Only recurse if this sub-assembly's part number is numeric-only
+            If IsNumericOnly(subAssyPn) Then
+                Dim subAssy2 As SldWorks.AssemblyDoc
+                Set subAssy2 = m2
+                ExportBOMRelationships subAssy2, outHandle
+            End If
+        End If
+NextChild2:
+    Next i
+End Sub
+
+' =============================================================
+Function GetPartNumber(model As SldWorks.ModelDoc2) As String
+    Dim partNo As String
+    partNo = GetCustomProperty(model, "PartNo")
+    If partNo = "" Then partNo = GetFileNameWithoutExt(model.GetPathName())
+    GetPartNumber = partNo
+End Function
+
+' =============================================================
+' Escape tabs and newlines for text output (replace with spaces)
+Function EscapeTabs(text As String) As String
+    Dim t As String
+    t = Replace(text, vbTab, " ")
+    t = Replace(t, vbCr, " ")
+    t = Replace(t, vbLf, " ")
+    EscapeTabs = t
+End Function
+
+' =============================================================
+' Recursively processes a SolidWorks assembly level and writes CSV rows with global deduplication.
+'   assy           – assembly whose immediate children we are processing
+'   parentItemNo   – hierarchical item number of the parent ("" for root)
+'   level          – integer depth (1=root children, 2=grand-children, …)
+'   parentQty      – quantity multiplier propagated from parent hierarchy
+'   globalItemDict – global dictionary to track all exported items across entire BOM
+Sub ProcessAssemblyLevelWithGlobalDedup(assy As SldWorks.AssemblyDoc, _
+                         parentItemNo As String, _
+                         level As Integer, _
+                         parentQty As Integer, _
+                         globalItemDict As Object, _
+                         bomRelationships As Object)
+    Dim vComps As Variant
+    vComps = assy.GetComponents(False)   ' direct children only
+    If IsEmpty(vComps) Then Exit Sub
+    
+    ' Get the parent part number for relationship tracking
+    Dim parentPartNo As String
+    parentPartNo = GetPartNumber(assy)
+    
+    ' Dictionary to avoid exporting duplicate part numbers at this level
+    Dim dict As Object
+    Set dict = CreateObject("Scripting.Dictionary")
+    
+    Dim childIdx As Integer: childIdx = 0
+    Dim i As Integer
+    For i = 0 To UBound(vComps)
+        Dim swComp As SldWorks.Component2
+        Set swComp = vComps(i)
+        
+        If swComp Is Nothing Then GoTo NextIteration
+        If swComp.IsSuppressed Then GoTo NextIteration
+        
+        Dim swChild As SldWorks.ModelDoc2
+        Set swChild = swComp.GetModelDoc2()
+        If swChild Is Nothing Then GoTo NextIteration
+        
+        Dim partNo As String
+        partNo = GetCustomProperty(swChild, "PartNo")
+        If partNo = "" Then partNo = GetFileNameWithoutExt(swChild.GetPathName())
+        
+        ' Skip if part number contains any letters (non-numeric/dash/dot)
+        If Not IsNumericOnly(partNo) Then GoTo NextIteration
+        
+        ' Capture parent-child relationship for PDUBM (before any skipping)
+        If IsNumericOnly(parentPartNo) And IsNumericOnly(partNo) Then
+            Dim relKey As String
+            relKey = parentPartNo & "|" & partNo
+            If Not bomRelationships.Exists(relKey) Then
+                Dim instQtyForRel As Integer
+                instQtyForRel = CountInstances(assy, swComp)
+                bomRelationships.Add relKey, instQtyForRel
+            End If
+        End If
+        
+        ' Ensure we only list each unique part number once per level
+        If dict.Exists(partNo) Then GoTo NextIteration
+        dict.Add partNo, True
+        
+        ' Check if this part has already been exported globally
+        If globalItemDict.Exists(partNo) Then GoTo NextIteration
+        globalItemDict.Add partNo, True
+        
+        ' Increment local item counter and build hierarchical item number
+        childIdx = childIdx + 1
+        Dim thisItemNo As String
+        If parentItemNo = "" Then
+            thisItemNo = CStr(childIdx)    ' top level: 1,2,3 …
+        Else
+            thisItemNo = parentItemNo & "." & childIdx   ' e.g. 6.1, 6.2 …
+        End If
+        
+        ' Calculate quantity for this item (instances × parentQty)
+        Dim instQty As Integer
+        instQty = CountInstances(assy, swComp) * parentQty
+        
+        ' Obtain description (or blank string)
+        Dim descr As String
+        descr = GetCustomProperty(swChild, "Description")
+        If descr = "" Then descr = " "
+        
+        ' Build part-number field with indentation: two spaces per level beyond root
+        Dim indent As String
+        indent = Space(2 * (level - 1))
+        Dim indentedPartNo As String
+        indentedPartNo = indent & partNo
+        
+        ' Write CSV row
+        Print #fileNum, EscapeCSV(thisItemNo) & "," & _
+                        EscapeCSV(indentedPartNo) & "," & _
+                        EscapeCSV(descr) & "," & _
+                        instQty
+        
+        ' If child is an assembly, recurse into its children
+        If swChild.GetType() = swDocumentTypes_e.swDocASSEMBLY Then
+            Dim subAssy As SldWorks.AssemblyDoc
+            Set subAssy = swChild
+            ProcessAssemblyLevelWithGlobalDedup subAssy, thisItemNo, level + 1, instQty, globalItemDict, bomRelationships
+        End If
+NextIteration:
+    Next i
+End Sub
+
+' =============================================================
+' Recursively processes a SolidWorks assembly level and writes CSV rows (ORIGINAL VERSION - DEPRECATED).
 '   assy           – assembly whose immediate children we are processing
 '   parentItemNo   – hierarchical item number of the parent ("" for root)
 '   level          – integer depth (1=root children, 2=grand-children, …)
