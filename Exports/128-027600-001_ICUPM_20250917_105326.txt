@@ -1,0 +1,35 @@
+PART_ID	PART_DESC	PART_CLASS	PART_TYPE	DWG_REV	ORIG_REL_DATE	Processed Flag
+128-027600-001	ASSY - POD RIM - PLM 200Rx	TA	M	1	5/18/2016	N
+128-021059-001	MOUNT - LATCH MOTOR	FC	B	2	6/1/2009	N
+005-0260	screw-shoulder, 3/32 dia x 1/8 long. 2-56 thd, s.s.	PC	B	1	 	N
+005-0349	Spacer,1/4"Rnd,#4 Hole,5/8"Lg,Nylon	PC	B	1	5/16/2014	N
+005-0264	cover cap for M4 soc head-c-bored, black urethane	PC	B	1	5/10/2011	N
+127-024164-003	Cable Assy - Rear Unlatched Sensor	SA	M	1	2/2/2015	N
+020-0074	Optical Switch,Ultra Small	PC	B	1	1/31/2007	N
+127-024166-002	ASSY - Rear Latch Motor	SA	M	1	10/24/2013	N
+001-0063	MOTOR, LATCH	PC	B	 	 	N
+127-024164-001	Cable Assy - Front Latched Sensor	SA	M	1	2/2/2015	N
+127-024164-002	Cable Assy - Front Unlatched Sensor	SA	M	1	2/2/2015	N
+127-024166-001	ASSY - POD LATCH MOTOR	SA	M	1	6/22/2011	N
+127-024164-004	Cable Assy - Rear Latched Sensor	SA	M	1	2/2/2015	N
+128-024169-001	Cable Assy - Latch Motor	SA	M	1	2/2/2015	N
+128-025826-002	Assy - Pod Guide - RSP 200mm	SA	M	2	12/16/2014	N
+128-025827-002	Pod Guide - RSP 200mm	FC	B	4	12/16/2014	N
+128-025828-002	Latch Cover	FC	B	3	12/16/2014	N
+165-023673-001	Assy - Lid Latch	SA	M	1	1/11/2012	N
+165-023674-001	Latch Shaft	FC	B	3	1/11/2012	N
+004-0306-2	O-RING, VITON 3/8OD X 1/4 ID	PC	B	1	6/1/2009	N
+004-0596	Retaining Ring External, for .25" Shaft Dia, MS16624-1025, c	PC	B	 	 	N
+165-023680-001	Latch-upper half	FC	B	3	4/8/2011	N
+165-023681-001	Flag 	FC	B	2	1/19/2012	N
+165-023744-001	thrust bearing	FC	B	1	1/30/2012	N
+165-023973-001	slide tape	FC	B	1	4/11/2012	N
+165-023682-001	sensor mnt	FC	B	1	1/20/2012	N
+128-024243-001	Cable Cover - Map - LH	FC	B	4	9/12/2012	N
+165-023808-001	sensor bkt-latch closed	FC	B	1	2/7/2012	N
+128-022760-001	Latch - Link	FC	B	3	4/8/2011	N
+128-022761-001	link mount-motor	FC	B	2	4/8/2011	N
+128-024964-001	Pod Rim Plate PLM 200	FC	B	12	4/19/13	N
+128-024242-001	Cable Cover - Map - RH	FC	B	4	9/12/2012	N
+128-024299-001	cable cover-protrusion	FC	B	4	10/2/2012	N
+128-024948-001	pod rim seal	FC	B	1	4/16/13	N

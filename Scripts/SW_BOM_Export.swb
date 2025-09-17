@@ -115,7 +115,7 @@ End Sub
 
 ' =============================================================
 ' Exports two Expendable ERP text files:
-'  - Parts Master (ICUPM): minimal required fields per part
+'  - Parts Master (ICUPM): Part ID, Part Type, Part Class, Description, Drawing Rev, Orig Release Date, Processed Flag
 '  - Bill of Material (PDUBM): parent-child-qty relationships
 Sub ExportExpendableTextFiles(bomRelationships As Object)
     Dim ts As String
@@ -146,28 +146,110 @@ Sub ExportExpendableTextFiles(bomRelationships As Object)
     End If
     CollectUniqueParts swAssy, partsDict
     
-    ' Export ICUPM (Parts Master) minimal fields: PART_ID, PART_DESC, Processed Flag
+    ' Export ICUPM (Parts Master) with selected fields: PART_ID, PART_DESC, PART_CLASS (PC/FC/SA/TA), PART_TYPE (B/M), DWG_REV (REV), ORIG_REL_DATE (created_date), Processed Flag
     Dim fnIC As Integer
     fnIC = FreeFile
     Open icupmPath For Output As #fnIC
+        ' Write header row with only the 7 fields we're exporting
+        Print #fnIC, "PART_ID" & vbTab & "PART_DESC" & vbTab & "PART_CLASS" & vbTab & "PART_TYPE" & vbTab & "DWG_REV" & vbTab & "ORIG_REL_DATE" & vbTab & "Processed Flag"
         Dim key As Variant
         For Each key In partsDict.Keys
             Dim partId As String
             Dim partDesc As String
+            Dim partType As String
+            Dim partClass As String
+            Dim dwgRev As String
+            Dim origRelDate As String
+            
             partId = CStr(key)
             partDesc = CStr(partsDict(key))
             If partDesc = "" Then partDesc = " "
-            ' Minimal required columns only, tab-separated, no header
+            
+            ' Get additional properties from the part model
+            Dim partModel As SldWorks.ModelDoc2
+            Set partModel = FindModelByPartNumber(partId)
+            
+            If Not partModel Is Nothing Then
+                dwgRev = GetCustomProperty(partModel, "REV")
+                origRelDate = GetCustomProperty(partModel, "created_date")
+                
+                ' Determine Part Type (B/M) based on business logic
+                Dim materialProp As String
+                materialProp = GetCustomProperty(partModel, "Material")
+                If InStr(materialProp, "SEE BOM") > 0 Then
+                    partType = "M"  ' Make - parts with "SEE BOM" in Material property
+                ElseIf Left(partId, 1) = "0" Then
+                    partType = "B"  ' Buy - off-the-shelf components starting with 0
+                Else
+                    partType = "B"  ' Buy - everything else
+                End If
+                
+                ' Determine Part Class (PC/FC/SA/TA) based on business logic
+                Dim isTopAssembly As Boolean
+                isTopAssembly = (partId = GetPartNumber(swModel))  ' Check if this is the top assembly we're running on
+                
+                If Left(partId, 1) = "0" Then
+                    partClass = "PC"  ' Pure Component - off-the-shelf components starting with 0
+                ElseIf partType = "M" And isTopAssembly Then
+                    partClass = "TA"  ' Top Assembly - the assembly the macro is run on
+                ElseIf partType = "M" Then
+                    partClass = "SA"  ' Sub-Assembly - all other M parts
+                Else
+                    partClass = "FC"  ' Fabricated Component - everything else
+                End If
+            Else
+                ' If we can't find the model, try to get properties from any model with this part number in the current assembly
+                dwgRev = GetPropertyFromAssemblyPart(partId, "REV")
+                origRelDate = GetPropertyFromAssemblyPart(partId, "created_date")
+                
+                ' Apply same logic for parts we can't find the model for
+                Dim materialProp2 As String
+                materialProp2 = GetPropertyFromAssemblyPart(partId, "Material")
+                If InStr(materialProp2, "SEE BOM") > 0 Then
+                    partType = "M"
+                ElseIf Left(partId, 1) = "0" Then
+                    partType = "B"
+                Else
+                    partType = "B"
+                End If
+                
+                Dim isTopAssembly2 As Boolean
+                isTopAssembly2 = (partId = GetPartNumber(swModel))
+                
+                If Left(partId, 1) = "0" Then
+                    partClass = "PC"
+                ElseIf partType = "M" And isTopAssembly2 Then
+                    partClass = "TA"
+                ElseIf partType = "M" Then
+                    partClass = "SA"
+                Else
+                    partClass = "FC"
+                End If
+            End If
+            
+            ' Use empty strings if properties not found
+            If partType = "" Then partType = " "
+            If partClass = "" Then partClass = " "
+            If dwgRev = "" Then dwgRev = " "
+            If origRelDate = "" Then origRelDate = " "
+            
+            ' Export only the 7 requested fields: PART_ID, PART_DESC, PART_CLASS, PART_TYPE, DWG_REV, ORIG_REL_DATE, Processed Flag
             Print #fnIC, EscapeTabs(partId) & vbTab & _
                           EscapeTabs(partDesc) & vbTab & _
+                          EscapeTabs(partClass) & vbTab & _
+                          EscapeTabs(partType) & vbTab & _
+                          EscapeTabs(dwgRev) & vbTab & _
+                          EscapeTabs(origRelDate) & vbTab & _
                           "N"
         Next key
     Close #fnIC
     
-    ' Export PDUBM (BOM): PARENT_PART_ID, COMPONENT_PART_ID, QTY_PER, Processed Flag
+    ' Export PDUBM (BOM): ASSEMBLY_ID, COMPONENT_ID, REQUIRED_QTY, Processed Flag
     Dim fnPD As Integer
     fnPD = FreeFile
     Open pdubmPath For Output As #fnPD
+        ' Write header row for PDUBM
+        Print #fnPD, "ASSEMBLY_ID" & vbTab & "COMPONENT_ID" & vbTab & "REQUIRED_QTY" & vbTab & "Processed Flag"
         ' Use the relationships captured during CSV generation
         Dim relKey As Variant
         For Each relKey In bomRelationships.Keys
@@ -191,7 +273,8 @@ Sub ExportExpendableTextFiles(bomRelationships As Object)
     
     MsgBox "Expendable text files exported:" & vbCrLf & _
            "ICUPM (Parts Master): " & icupmPath & vbCrLf & _
-           "PDUBM (BOM): " & pdubmPath, vbInformation
+           "PDUBM (BOM): " & pdubmPath & vbCrLf & vbCrLf & _
+           "ICUPM includes: Part ID, Part Type, Part Class, Description, Drawing Rev, Orig Release Date", vbInformation
 End Sub
 
 ' =============================================================
@@ -495,6 +578,102 @@ Function GetPartNumber(model As SldWorks.ModelDoc2) As String
     partNo = GetCustomProperty(model, "PartNo")
     If partNo = "" Then partNo = GetFileNameWithoutExt(model.GetPathName())
     GetPartNumber = partNo
+End Function
+
+' =============================================================
+Function FindModelByPartNumber(partNumber As String) As SldWorks.ModelDoc2
+    ' Find the model document that corresponds to the given part number
+    ' This function searches through the assembly hierarchy to find the model
+    Set FindModelByPartNumber = Nothing
+    
+    ' Start with the root assembly
+    If GetPartNumber(swModel) = partNumber Then
+        Set FindModelByPartNumber = swModel
+        Exit Function
+    End If
+    
+    ' Search through all components in the assembly
+    FindModelInAssembly swAssy, partNumber, FindModelByPartNumber
+End Function
+
+' =============================================================
+Sub FindModelInAssembly(assy As SldWorks.AssemblyDoc, partNumber As String, ByRef foundModel As SldWorks.ModelDoc2)
+    If Not foundModel Is Nothing Then Exit Sub ' Already found
+    
+    Dim vComps As Variant
+    vComps = assy.GetComponents(False)
+    If IsEmpty(vComps) Then Exit Sub
+    
+    Dim i As Integer
+    For i = 0 To UBound(vComps)
+        If Not foundModel Is Nothing Then Exit For ' Already found
+        
+        Dim c As SldWorks.Component2
+        Set c = vComps(i)
+        If c Is Nothing Then GoTo NextComp
+        If c.IsSuppressed Then GoTo NextComp
+        
+        Dim m As SldWorks.ModelDoc2
+        Set m = c.GetModelDoc2()
+        If m Is Nothing Then GoTo NextComp
+        
+        ' Check if this model has the part number we're looking for
+        If GetPartNumber(m) = partNumber Then
+            Set foundModel = m
+            Exit For
+        End If
+        
+        ' If it's a sub-assembly, search recursively
+        If m.GetType() = swDocumentTypes_e.swDocASSEMBLY Then
+            Dim subAssy As SldWorks.AssemblyDoc
+            Set subAssy = m
+            FindModelInAssembly subAssy, partNumber, foundModel
+        End If
+NextComp:
+    Next i
+End Sub
+
+' =============================================================
+Function GetPropertyFromAssemblyPart(partNumber As String, propName As String) As String
+    ' Alternative method to get custom properties by searching through assembly components
+    GetPropertyFromAssemblyPart = ""
+    
+    Dim vComps As Variant
+    vComps = swAssy.GetComponents(True) ' Get all components including sub-assemblies
+    If IsEmpty(vComps) Then Exit Function
+    
+    Dim i As Integer
+    For i = 0 To UBound(vComps)
+        Dim c As SldWorks.Component2
+        Set c = vComps(i)
+        If c Is Nothing Then GoTo NextPart
+        If c.IsSuppressed Then GoTo NextPart
+        
+        Dim m As SldWorks.ModelDoc2
+        Set m = c.GetModelDoc2()
+        If m Is Nothing Then GoTo NextPart
+        
+        ' Check if this component has the part number we're looking for
+        If GetPartNumber(m) = partNumber Then
+            GetPropertyFromAssemblyPart = GetCustomProperty(m, propName)
+            Exit Function
+        End If
+NextPart:
+    Next i
+End Function
+
+' =============================================================
+Function CountDashesInString(text As String) As Integer
+    ' Count the number of dashes (-) in a string
+    Dim count As Integer
+    Dim i As Integer
+    count = 0
+    
+    For i = 1 To Len(text)
+        If Mid(text, i, 1) = "-" Then count = count + 1
+    Next i
+    
+    CountDashesInString = count
 End Function
 
 ' =============================================================

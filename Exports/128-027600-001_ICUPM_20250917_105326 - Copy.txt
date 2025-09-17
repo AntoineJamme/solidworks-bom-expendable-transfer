@@ -1,0 +1,3 @@
+PART_ID	PART_DESC	PART_CLASS	PART_TYPE	DWG_REV	ORIG_REL_DATE	Processed Flag
+005-0260	screw-shoulder, 3/32 dia x 1/8 long. 2-56 thd, s.s.	PC	B	1	 	N
+

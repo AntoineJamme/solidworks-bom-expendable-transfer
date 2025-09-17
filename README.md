@@ -27,11 +27,34 @@ The macro creates three files from your assembly:
 
 2. **Parts Master (ICUPM)**: `{AssemblyName}_ICUPM_{timestamp}.txt`
    - Tab-separated values for Expendable ERP Parts Master
-   - Columns: PART_ID, PART_DESC, Processed Flag
+   - Columns: PART_ID, PART_DESC, PART_CLASS, PART_TYPE, DWG_REV, ORIG_REL_DATE, Processed Flag
+   - **Part Type**: Automatically determined as "B" (Buy) or "M" (Make) based on business rules
+   - **Part Class**: Automatically determined as "PC" (Pure Component), "FC" (Fabricated Component), "SA" (Sub-Assembly), or "TA" (Top Assembly)
 
 3. **Bill of Material (PDUBM)**: `{AssemblyName}_PDUBM_{timestamp}.txt`
    - Tab-separated values for Expendable ERP BOM
-   - Columns: PARENT_PART_ID, COMPONENT_PART_ID, QTY_PER, Processed Flag
+   - Columns: ASSEMBLY_ID, COMPONENT_ID, REQUIRED_QTY, Processed Flag
+
+## 🔧 Part Type and Part Class Logic
+
+The macro automatically determines Part Type and Part Class based on your business rules:
+
+### Part Type (B/M):
+- **"M" (Make)**: Parts with "SEE BOM" in their Material custom property
+- **"B" (Buy)**: Off-the-shelf components starting with "0" (e.g., "004-0306-2", "123-456")
+- **"B" (Buy)**: Everything else (default)
+
+### Part Class (PC/FC/SA/TA):
+- **"PC" (Pure Component)**: Off-the-shelf components starting with "0"
+- **"TA" (Top Assembly)**: The main assembly the macro is run on (if it's type "M")
+- **"SA" (Sub-Assembly)**: All other "M" parts except the top assembly
+- **"FC" (Fabricated Component)**: Everything else (default)
+
+### Examples:
+- `004-0306-2` → Type: "B", Class: "PC" (off-the-shelf component)
+- `0123-456` → Type: "B", Class: "PC" (off-the-shelf component)
+- `128-031213-001` with "SEE BOM" in Material → Type: "M", Class: "TA" (if top assembly) or "SA" (if sub-assembly)
+- `128-031213-002` with regular material → Type: "B", Class: "FC" (fabricated component)
 
 ## 📝 Notes
 
@@ -40,3 +63,5 @@ The macro creates three files from your assembly:
 - Suppressed components are automatically excluded
 - Part numbers are extracted from the "PartNo" custom property or filename
 - Descriptions are extracted from the "Description" custom property
+- Drawing revision is extracted from the "REV" custom property
+- Original release date is extracted from the "created_date" custom property
