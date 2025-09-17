@@ -30,6 +30,7 @@ The macro creates two files from your assembly:
 2. **Bill of Material (PDUBM)**: `{AssemblyName}_PDUBM_{timestamp}.txt`
    - Tab-separated values for Expendable ERP BOM
    - Columns: ASSEMBLY_ID, COMPONENT_ID, REQUIRED_QTY, Processed Flag
+   - **Structured BOM**: Only captures immediate parent-child relationships (no rollup/summary)
 
 ## 🔧 Part Type and Part Class Logic
 
