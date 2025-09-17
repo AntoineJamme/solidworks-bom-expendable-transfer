@@ -38,12 +38,92 @@ Sub main()
     
     Set swAssy = swModel
     
-    ' Export CSV and capture BOM relationships for later use
+    ' Build BOM relationships for PDUBM without creating a CSV
     Dim capturedBomRelationships As Object
-    Set capturedBomRelationships = ExportIndentedBOMWithCapture()
+    Set capturedBomRelationships = BuildBomRelationships()
     
-    ' Also export Expendable ERP text files for ICUPM (Parts Master) and PDUBM (BOM)
+    ' Export Expendable ERP text files for ICUPM (Parts Master) and PDUBM (BOM)
     ExportExpendableTextFiles capturedBomRelationships
+End Sub
+
+' =============================================================
+Function BuildBomRelationships() As Object
+    Dim bomRelationships As Object
+    Set bomRelationships = CreateObject("Scripting.Dictionary")
+    
+    CaptureBomRelationships swAssy, bomRelationships
+    
+    Set BuildBomRelationships = bomRelationships
+End Function
+
+' =============================================================
+Sub CaptureBomRelationships(assy As SldWorks.AssemblyDoc, bomRelDict As Object)
+    Dim parentModel As SldWorks.ModelDoc2
+    Set parentModel = assy
+    Dim parentPartNo As String
+    parentPartNo = GetPartNumber(parentModel)
+    
+    Dim vComps As Variant
+    vComps = assy.GetComponents(False)
+    If IsEmpty(vComps) Then Exit Sub
+    
+    ' Count quantities per unique child part at this level
+    Dim qtyDict As Object
+    Set qtyDict = CreateObject("Scripting.Dictionary")
+    
+    Dim i As Integer
+    For i = 0 To UBound(vComps)
+        Dim c As SldWorks.Component2
+        Set c = vComps(i)
+        If c Is Nothing Then GoTo NextChild
+        If c.IsSuppressed Then GoTo NextChild
+        
+        Dim m As SldWorks.ModelDoc2
+        Set m = c.GetModelDoc2()
+        If m Is Nothing Then GoTo NextChild
+        
+        Dim childPn As String
+        childPn = GetPartNumber(m)
+        
+        ' Skip children whose part numbers contain letters
+        If Not IsNumericOnly(childPn) Then GoTo NextChild
+        
+        If qtyDict.Exists(childPn) Then
+            qtyDict(childPn) = CLng(qtyDict(childPn)) + 1
+        Else
+            qtyDict.Add childPn, 1
+        End If
+NextChild:
+    Next i
+    
+    ' Record relationships for this level only when parent is numeric-only
+    Dim key As Variant
+    If IsNumericOnly(parentPartNo) Then
+        For Each key In qtyDict.Keys
+            Dim relKey As String
+            relKey = parentPartNo & "|" & CStr(key)
+            If Not bomRelDict.Exists(relKey) Then
+                bomRelDict.Add relKey, CLng(qtyDict(key))
+            End If
+        Next key
+    End If
+    
+    ' Recurse into sub-assemblies
+    For i = 0 To UBound(vComps)
+        Dim c2 As SldWorks.Component2
+        Set c2 = vComps(i)
+        If c2 Is Nothing Then GoTo NextChild2
+        If c2.IsSuppressed Then GoTo NextChild2
+        Dim m2 As SldWorks.ModelDoc2
+        Set m2 = c2.GetModelDoc2()
+        If m2 Is Nothing Then GoTo NextChild2
+        If m2.GetType() = swDocumentTypes_e.swDocASSEMBLY Then
+            Dim subAssy As SldWorks.AssemblyDoc
+            Set subAssy = m2
+            CaptureBomRelationships subAssy, bomRelDict
+        End If
+NextChild2:
+    Next i
 End Sub
 
 ' =============================================================

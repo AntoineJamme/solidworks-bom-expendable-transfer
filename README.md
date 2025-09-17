@@ -1,6 +1,6 @@
 # SolidWorks BOM Export Macro
 
-A SolidWorks VBA macro for exporting Bill of Materials (BOM) data from assemblies to CSV format and Expendable ERP text files.
+A SolidWorks VBA macro for exporting Bill of Materials (BOM) data from assemblies to Expendable ERP text files.
 
 ## 🚀 Quick Start
 
@@ -19,19 +19,15 @@ Make sure to include the trailing backslash and ensure the folder exists.
 
 ## 📋 What the Macro Exports
 
-The macro creates three files from your assembly:
+The macro creates two files from your assembly:
 
-1. **Indented BOM (CSV)**: `{AssemblyName}_IndentedBOM_{timestamp}.csv`
-   - Hierarchical BOM with indentation showing assembly structure
-   - Columns: ITEM NO., PART NUMBER, DESCRIPTION, QTY.
-
-2. **Parts Master (ICUPM)**: `{AssemblyName}_ICUPM_{timestamp}.txt`
+1. **Parts Master (ICUPM)**: `{AssemblyName}_ICUPM_{timestamp}.txt`
    - Tab-separated values for Expendable ERP Parts Master
    - Columns: PART_ID, PART_DESC, PART_CLASS, PART_TYPE, DWG_REV, ORIG_REL_DATE, Processed Flag
    - **Part Type**: Automatically determined as "B" (Buy) or "M" (Make) based on business rules
    - **Part Class**: Automatically determined as "PC" (Pure Component), "FC" (Fabricated Component), "SA" (Sub-Assembly), or "TA" (Top Assembly)
 
-3. **Bill of Material (PDUBM)**: `{AssemblyName}_PDUBM_{timestamp}.txt`
+2. **Bill of Material (PDUBM)**: `{AssemblyName}_PDUBM_{timestamp}.txt`
    - Tab-separated values for Expendable ERP BOM
    - Columns: ASSEMBLY_ID, COMPONENT_ID, REQUIRED_QTY, Processed Flag
 
