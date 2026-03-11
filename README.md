@@ -55,8 +55,7 @@ The macro automatically determines Part Type and Part Class based on your busine
 
 ## 📝 Notes
 
-- Only parts with numeric-only part numbers (including dashes and dots) are exported
-- Parts with letters in their part numbers are automatically excluded
+- **Part number filter**: Part numbers containing **lowercase letters** (a–z) or **underscores** (_) are excluded. Uppercase letters (e.g. `1129-A0098-2`), digits, dashes, and dots are allowed.
 - Suppressed components are automatically excluded
 - Part numbers are extracted from the "PartNo" custom property or filename
 - Descriptions are extracted from the "Description" custom property

@@ -63,11 +63,12 @@ Sub CaptureBomRelationships(assy As SldWorks.AssemblyDoc, bomRelDict As Object)
     Dim parentPartNo As String
     parentPartNo = GetPartNumber(parentModel)
     
+    ' Get immediate children using GetComponents with proper filtering
     Dim vComps As Variant
-    vComps = assy.GetComponents(False)
+    vComps = assy.GetComponents(False)  ' Get top-level components
     If IsEmpty(vComps) Then Exit Sub
     
-    ' Count quantities per unique child part at this level
+    ' Count quantities per unique IMMEDIATE child at this assembly level only
     Dim qtyDict As Object
     Set qtyDict = CreateObject("Scripting.Dictionary")
     
@@ -88,15 +89,26 @@ Sub CaptureBomRelationships(assy As SldWorks.AssemblyDoc, bomRelDict As Object)
         ' Skip children whose part numbers contain letters
         If Not IsNumericOnly(childPn) Then GoTo NextChild
         
-        If qtyDict.Exists(childPn) Then
-            qtyDict(childPn) = CLng(qtyDict(childPn)) + 1
-        Else
-            qtyDict.Add childPn, 1
+        ' Verify this is truly an immediate child by checking component level
+        ' Only count components that are direct children (not nested)
+        Dim compName As String
+        compName = c.Name2
+        Dim slashCount As Integer
+        slashCount = CountSlashesInString(compName)
+        
+        ' If component name has no slashes, it's a top-level component
+        ' If it has slashes, it might be nested - skip those
+        If slashCount = 0 Then
+            If qtyDict.Exists(childPn) Then
+                qtyDict(childPn) = CLng(qtyDict(childPn)) + 1
+            Else
+                qtyDict.Add childPn, 1
+            End If
         End If
 NextChild:
     Next i
     
-    ' Record relationships for this level only when parent is numeric-only
+    ' Record IMMEDIATE parent-child relationships for this level only
     Dim key As Variant
     If IsNumericOnly(parentPartNo) Then
         For Each key In qtyDict.Keys
@@ -108,19 +120,25 @@ NextChild:
         Next key
     End If
     
-    ' Recurse into sub-assemblies
+    ' Recurse into sub-assemblies to capture THEIR immediate relationships
     For i = 0 To UBound(vComps)
         Dim c2 As SldWorks.Component2
         Set c2 = vComps(i)
         If c2 Is Nothing Then GoTo NextChild2
         If c2.IsSuppressed Then GoTo NextChild2
+        
         Dim m2 As SldWorks.ModelDoc2
         Set m2 = c2.GetModelDoc2()
         If m2 Is Nothing Then GoTo NextChild2
         If m2.GetType() = swDocumentTypes_e.swDocASSEMBLY Then
-            Dim subAssy As SldWorks.AssemblyDoc
-            Set subAssy = m2
-            CaptureBomRelationships subAssy, bomRelDict
+            Dim childAssyPn As String
+            childAssyPn = GetPartNumber(m2)
+            ' Only recurse if the sub-assembly has a numeric part number
+            If IsNumericOnly(childAssyPn) Then
+                Dim subAssy As SldWorks.AssemblyDoc
+                Set subAssy = m2
+                CaptureBomRelationships subAssy, bomRelDict
+            End If
         End If
 NextChild2:
     Next i
@@ -757,6 +775,20 @@ Function CountDashesInString(text As String) As Integer
 End Function
 
 ' =============================================================
+Function CountSlashesInString(text As String) As Integer
+    ' Count the number of slashes (/) in a string
+    Dim count As Integer
+    Dim i As Integer
+    count = 0
+    
+    For i = 1 To Len(text)
+        If Mid(text, i, 1) = "/" Then count = count + 1
+    Next i
+    
+    CountSlashesInString = count
+End Function
+
+' =============================================================
 ' Escape tabs and newlines for text output (replace with spaces)
 Function EscapeTabs(text As String) As String
     Dim t As String
@@ -972,12 +1004,12 @@ End Function
 
 ' =============================================================
 Function IsNumericOnly(txt As String) As Boolean
-    ' Returns True if txt contains only 0-9, dash (-) or dot (.) characters
+    ' Returns False if txt contains any lowercase letter (a-z) or underscore (_)
     Dim i As Integer
     For i = 1 To Len(txt)
         Dim ch As String
         ch = Mid(txt, i, 1)
-        If Not (ch >= "0" And ch <= "9" Or ch = "-" Or ch = ".") Then
+        If (ch >= "a" And ch <= "z") Or ch = "_" Then
             IsNumericOnly = False
             Exit Function
         End If
