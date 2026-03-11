@@ -55,7 +55,8 @@ The macro automatically determines Part Type and Part Class based on your busine
 
 ## 📝 Notes
 
-- **Part number filter**: Part numbers containing **lowercase letters** (a–z) or **underscores** (_) are excluded. Uppercase letters (e.g. `1129-A0098-2`), digits, dashes, and dots are allowed.
+- **Part number filter**: Part numbers containing **lowercase letters** (a-z) or **underscores** (_) are excluded. Uppercase letters (e.g. `1129-A0098-2`), digits, dashes, and dots are allowed.
+- **ASCII sanitization**: All exported text is stripped of non-ASCII characters (Japanese/CJK, special Unicode symbols, etc.) to prevent ERP import errors.
 - Suppressed components are automatically excluded
 - Part numbers are extracted from the "PartNo" custom property or filename
 - Descriptions are extracted from the "Description" custom property

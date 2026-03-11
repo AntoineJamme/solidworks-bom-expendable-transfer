@@ -789,13 +789,31 @@ Function CountSlashesInString(text As String) As Integer
 End Function
 
 ' =============================================================
-' Escape tabs and newlines for text output (replace with spaces)
+' Strip characters outside printable ASCII (32-126) to avoid
+' Unicode errors in the ERP import.
+Function StripNonAscii(text As String) As String
+    Dim i As Integer
+    Dim result As String
+    result = ""
+    For i = 1 To Len(text)
+        Dim code As Long
+        code = AscW(Mid(text, i, 1))
+        If code >= 32 And code <= 126 Then
+            result = result & Mid(text, i, 1)
+        End If
+    Next i
+    StripNonAscii = result
+End Function
+
+' =============================================================
+' Escape tabs and newlines for text output (replace with spaces),
+' then strip any remaining non-ASCII characters.
 Function EscapeTabs(text As String) As String
     Dim t As String
     t = Replace(text, vbTab, " ")
     t = Replace(t, vbCr, " ")
     t = Replace(t, vbLf, " ")
-    EscapeTabs = t
+    EscapeTabs = StripNonAscii(t)
 End Function
 
 ' =============================================================
@@ -1035,6 +1053,7 @@ End Function
 
 ' =============================================================
 Function EscapeCSV(text As String) As String
+    text = StripNonAscii(text)
     If InStr(text, ",") > 0 Or InStr(text, """" ) > 0 Or InStr(text, vbCrLf) > 0 Then
         text = Replace(text, """", """""")
         text = """" & text & """"
