@@ -673,7 +673,8 @@ End Sub
 ' =============================================================
 Function GetPartNumber(model As SldWorks.ModelDoc2) As String
     Dim partNo As String
-    partNo = GetCustomProperty(model, "PartNo")
+    partNo = GetCustomProperty(model, "PART NUMBER")
+    If partNo = "" Then partNo = GetCustomProperty(model, "PartNo")
     If partNo = "" Then partNo = GetFileNameWithoutExt(model.GetPathName())
     GetPartNumber = partNo
 End Function
@@ -855,8 +856,7 @@ Sub ProcessAssemblyLevelWithGlobalDedup(assy As SldWorks.AssemblyDoc, _
         If swChild Is Nothing Then GoTo NextIteration
         
         Dim partNo As String
-        partNo = GetCustomProperty(swChild, "PartNo")
-        If partNo = "" Then partNo = GetFileNameWithoutExt(swChild.GetPathName())
+        partNo = GetPartNumber(swChild)
         
         ' Skip if part number contains any letters (non-numeric/dash/dot)
         If Not IsNumericOnly(partNo) Then GoTo NextIteration
@@ -952,8 +952,7 @@ Sub ProcessAssemblyLevel(assy As SldWorks.AssemblyDoc, _
         If swChild Is Nothing Then GoTo NextIteration
         
         Dim partNo As String
-        partNo = GetCustomProperty(swChild, "PartNo")
-        If partNo = "" Then partNo = GetFileNameWithoutExt(swChild.GetPathName())
+        partNo = GetPartNumber(swChild)
         
         ' Skip if part number contains any letters (non-numeric/dash/dot)
         If Not IsNumericOnly(partNo) Then GoTo NextIteration
