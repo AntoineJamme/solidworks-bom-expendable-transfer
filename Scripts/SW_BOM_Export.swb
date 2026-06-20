@@ -673,7 +673,9 @@ End Sub
 ' =============================================================
 Function GetPartNumber(model As SldWorks.ModelDoc2) As String
     Dim partNo As String
-    partNo = GetCustomProperty(model, "PART NUMBER")
+    ' "PART NUMBER" can live on the Configuration Specific tab (e.g. off-the-shelf
+    ' McMaster parts), so check config-specific properties before file-level.
+    partNo = GetCustomPropertyAnyConfig(model, "PART NUMBER")
     If partNo = "" Then partNo = GetCustomProperty(model, "PartNo")
     If partNo = "" Then partNo = GetFileNameWithoutExt(model.GetPathName())
     GetPartNumber = partNo
@@ -1041,6 +1043,34 @@ Function GetCustomProperty(model As SldWorks.ModelDoc2, propName As String) As S
     Dim val As String, resVal As String
     mgr.Get3 propName, False, val, resVal
     GetCustomProperty = resVal
+End Function
+
+' =============================================================
+' Reads a custom property, checking the active configuration-specific
+' properties first (where properties like "PART NUMBER" often live for
+' off-the-shelf components), then falling back to file-level properties.
+Function GetCustomPropertyAnyConfig(model As SldWorks.ModelDoc2, propName As String) As String
+    Dim resVal As String
+    Dim val As String
+    
+    ' Try the active configuration-specific properties first
+    On Error Resume Next
+    Dim cfgName As String
+    cfgName = model.ConfigurationManager.ActiveConfiguration.Name
+    On Error GoTo 0
+    
+    If cfgName <> "" Then
+        Dim cfgMgr As SldWorks.CustomPropertyManager
+        Set cfgMgr = model.Extension.CustomPropertyManager(cfgName)
+        cfgMgr.Get3 propName, False, val, resVal
+        If resVal <> "" Then
+            GetCustomPropertyAnyConfig = resVal
+            Exit Function
+        End If
+    End If
+    
+    ' Fall back to file-level (Custom tab) properties
+    GetCustomPropertyAnyConfig = GetCustomProperty(model, propName)
 End Function
 
 ' =============================================================
